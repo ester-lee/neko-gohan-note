@@ -528,11 +528,12 @@ function showApp() {
    Googleドライブとの通信
 =========================================================== */
 async function fetchUserInfo() {
-  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+  const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)', {
     headers: { Authorization: 'Bearer ' + accessToken }
   });
-  if (!res.ok) throw new Error('userinfo failed');
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) throw new Error('ユーザー情報の取得に失敗: ' + driveErrorMessage(json, res.status));
+  return { email: json.user.emailAddress, name: json.user.displayName };
 }
 
 function driveErrorMessage(json, fallback) {
