@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ねこごはんノート</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -102,6 +103,7 @@
     color: #fff;
   }
   .big-btn:active { opacity: 0.85; }
+  .big-btn:disabled { opacity: 0.5; cursor: default; }
   .small-btn {
     font-size: 14px;
     padding: 8px 14px;
@@ -172,27 +174,22 @@
   }
   .login-wrap h1 { font-size: 26px; margin-bottom: 8px; }
   .login-wrap p { color: #8a6d2f; margin-bottom: 24px; }
-  .user-list { width: 100%; max-width: 320px; }
-  .user-choice {
-    width: 100%;
-    font-size: 18px;
-    padding: 14px;
-    margin-bottom: 10px;
-    border-radius: 12px;
-    border: 2px solid #ffc53d;
-    background: #fff;
-    cursor: pointer;
-    font-weight: bold;
-    color: #4a3b2a;
+  .login-box { width: 100%; max-width: 320px; }
+  .login-error {
+    display: none;
+    background: #ffe3e3;
+    color: #c0392b;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 10px;
+    margin-top: 16px;
+    text-align: left;
   }
-  .new-user-box {
-    width: 100%;
-    max-width: 320px;
-    margin-top: 20px;
-    background: #fff;
-    border: 2px dashed #ffc53d;
-    border-radius: 14px;
-    padding: 16px;
+  .login-loading {
+    display: none;
+    color: #8a6d2f;
+    font-size: 14px;
+    margin-top: 16px;
   }
 
   .empty-msg { color: #a9892f; font-size: 14px; padding: 10px 0; }
@@ -219,12 +216,11 @@
   <!-- ===== ログイン画面 ===== -->
   <div id="loginScreen" class="login-wrap">
     <h1>🐾 ねこごはんノート</h1>
-    <p>どなたですか？お名前を選んでください</p>
-    <div class="user-list" id="userList"></div>
-    <div class="new-user-box">
-      <label class="field-label">はじめての方はお名前を入力</label>
-      <input type="text" id="newUserName" class="field-input" placeholder="例：きよ">
-      <button class="big-btn" onclick="addUserAndLogin()">この名前で始める</button>
+    <p>Googleアカウントでログインしてください</p>
+    <div class="login-box">
+      <button class="big-btn" id="googleLoginBtn" onclick="startLogin()">Googleでログイン</button>
+      <div class="login-loading" id="loginLoading">確認しています…</div>
+      <div class="login-error" id="loginError"></div>
     </div>
   </div>
 
@@ -235,7 +231,7 @@
         <h1>🐾 ねこごはんノート</h1>
         <div>
           <span class="user-badge" id="currentUserLabel"></span>
-          <button class="logout-btn" onclick="logout()">切替</button>
+          <button class="logout-btn" onclick="logout()">ログアウト</button>
         </div>
       </div>
       <div class="tabs">
@@ -245,6 +241,7 @@
         <button class="tab-btn" data-tab="health" onclick="showTab('health')">体調メモ</button>
         <button class="tab-btn" data-tab="cat" onclick="showTab('cat')">猫の情報</button>
         <button class="tab-btn" data-tab="food" onclick="showTab('food')">フード管理</button>
+        <button class="tab-btn" data-tab="members" onclick="showTab('members')">メンバー管理</button>
       </div>
     </header>
 
@@ -365,43 +362,51 @@
         <div id="foodList"></div>
       </div>
 
+      <!-- メンバー管理 -->
+      <div class="screen" id="screen-members">
+        <div class="title">メンバー管理</div>
+        <div class="sub-note">ここに追加したGoogleアカウントだけが、ログインできます</div>
+        <div class="save-ok" id="memberSavedMsg">追加しました！</div>
+        <div class="card">
+          <label class="field-label">追加するGoogleアカウント（メールアドレス）</label>
+          <input type="email" id="memberEmail" class="field-input" placeholder="例：family@gmail.com">
+          <button class="big-btn" onclick="addMember()">メンバーを追加する</button>
+        </div>
+        <div class="title" style="font-size:18px;">現在のメンバー</div>
+        <div id="memberList"></div>
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
 /* ===========================================================
-   データの読み書き（ブラウザの中に保存。外部通信はしません）
+   Google ログイン・Googleドライブへの保存設定
 =========================================================== */
-const STORAGE_KEY = 'nekogohan_data_v1';
+const CLIENT_ID = '932666241542-9alot7gjfrb2bqado55oi4h7225of0eq.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
+const FOLDER_NAME = 'ねこごはんノート';
+const INITIAL_OWNER_EMAIL = 'kk.whiteberry.1249@gmail.com';
+
+let accessToken = null;
+let tokenClient = null;
+let currentUserEmail = null;
+let currentUserName = null;
+let driveFolderId = null;
+let driveFileId = null;
 
 function defaultData() {
   return {
-    users: [],
-    currentUser: null,
+    members: [],
     cat: { name: '', weight: '', age: '' },
     foods: [],      // {id, type:'main'|'treat', name, dailyGrams, treatKcal}
-    records: [],     // {id, date, time, foodId, foodName, foodType, grams, kcal, user}
-    health: []       // {id, date, weight, memo}
+    records: [],    // {id, date, time, foodId, foodName, foodType, grams, kcal, user}
+    health: []      // {id, date, weight, memo}
   };
 }
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultData();
-    const parsed = JSON.parse(raw);
-    return Object.assign(defaultData(), parsed);
-  } catch (e) {
-    return defaultData();
-  }
-}
-
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-let state = loadData();
+let state = defaultData();
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -413,64 +418,237 @@ function todayStr() {
 }
 
 /* ===========================================================
-   ログイン
+   Googleログイン
 =========================================================== */
-function renderLogin() {
-  const list = document.getElementById('userList');
-  list.innerHTML = '';
-  state.users.forEach(u => {
-    const btn = document.createElement('button');
-    btn.className = 'user-choice';
-    btn.textContent = u;
-    btn.onclick = () => login(u);
-    list.appendChild(btn);
+window.addEventListener('load', () => {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: onTokenReceived
   });
+});
+
+function startLogin() {
+  hideLoginError();
+  tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
-function addUserAndLogin() {
-  const input = document.getElementById('newUserName');
-  const name = input.value.trim();
-  if (!name) {
-    alert('お名前を入力してください');
+function hideLoginError() {
+  document.getElementById('loginError').style.display = 'none';
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('loginLoading').style.display = 'none';
+  document.getElementById('googleLoginBtn').style.display = 'block';
+  accessToken = null;
+}
+
+async function onTokenReceived(resp) {
+  if (resp.error) {
+    showLoginError('ログインに失敗しました。もう一度お試しください。');
     return;
   }
-  if (!state.users.includes(name)) {
-    state.users.push(name);
-    saveData();
+  accessToken = resp.access_token;
+  document.getElementById('googleLoginBtn').style.display = 'none';
+  document.getElementById('loginLoading').style.display = 'block';
+  try {
+    await afterSignIn();
+  } catch (e) {
+    showLoginError('通信中にエラーが発生しました。インターネット接続を確認してください。');
   }
-  login(name);
 }
 
-function login(name) {
-  state.currentUser = name;
-  saveData();
+async function afterSignIn() {
+  const profile = await fetchUserInfo();
+  currentUserEmail = profile.email;
+  currentUserName = profile.name || profile.email;
+
+  const folder = await driveFindFolder(FOLDER_NAME);
+
+  if (!folder) {
+    if (currentUserEmail.toLowerCase() !== INITIAL_OWNER_EMAIL.toLowerCase()) {
+      showLoginError('このGoogleアカウントはまだ招待されていません。管理者に追加してもらってください。');
+      return;
+    }
+    driveFolderId = await driveCreateFolder(FOLDER_NAME);
+    state = defaultData();
+    state.members = [INITIAL_OWNER_EMAIL];
+    driveFileId = await driveCreateFile('data.json', driveFolderId, state);
+  } else {
+    driveFolderId = folder.id;
+    const file = await driveFindFileInFolder(driveFolderId, 'data.json');
+    if (!file) {
+      state = defaultData();
+      state.members = [currentUserEmail];
+      driveFileId = await driveCreateFile('data.json', driveFolderId, state);
+    } else {
+      driveFileId = file.id;
+      state = await driveGetFileContent(driveFileId);
+    }
+    const allowed = (state.members || []).map(e => e.toLowerCase());
+    if (!allowed.includes(currentUserEmail.toLowerCase())) {
+      showLoginError('このGoogleアカウントは、メンバーとして登録されていません。');
+      return;
+    }
+  }
+
   showApp();
 }
 
 function logout() {
-  state.currentUser = null;
-  saveData();
+  if (accessToken) {
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null;
+  currentUserEmail = null;
+  currentUserName = null;
+  driveFolderId = null;
+  driveFileId = null;
+  state = defaultData();
+
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
-  renderLogin();
+  document.getElementById('googleLoginBtn').style.display = 'block';
+  document.getElementById('loginLoading').style.display = 'none';
+  hideLoginError();
 }
 
 function showApp() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
-  document.getElementById('currentUserLabel').textContent = state.currentUser + ' さん';
+  document.getElementById('currentUserLabel').textContent = currentUserName;
   initAppScreens();
   showTab('record');
 }
 
 /* ===========================================================
+   Googleドライブとの通信
+=========================================================== */
+async function fetchUserInfo() {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  if (!res.ok) throw new Error('userinfo failed');
+  return res.json();
+}
+
+async function driveFindFolder(name) {
+  const q = encodeURIComponent("name='" + name + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const json = await res.json();
+  return (json.files && json.files.length > 0) ? json.files[0] : null;
+}
+
+async function driveCreateFolder(name) {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' })
+  });
+  const json = await res.json();
+  return json.id;
+}
+
+async function driveFindFileInFolder(folderId, filename) {
+  const q = encodeURIComponent("'" + folderId + "' in parents and name='" + filename + "' and trashed=false");
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const json = await res.json();
+  return (json.files && json.files.length > 0) ? json.files[0] : null;
+}
+
+async function driveCreateFile(name, parentId, contentObj) {
+  const metadata = { name, parents: [parentId], mimeType: 'application/json' };
+  const boundary = '-------nekogohan' + uid();
+  const delimiter = '\r\n--' + boundary + '\r\n';
+  const closeDelim = '\r\n--' + boundary + '--';
+  const body =
+    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(contentObj) +
+    closeDelim;
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+    },
+    body
+  });
+  const json = await res.json();
+  return json.id;
+}
+
+async function driveUpdateFile(fileId, contentObj) {
+  await fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(contentObj)
+  });
+}
+
+async function driveGetFileContent(fileId) {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  return res.json();
+}
+
+async function driveListPermissions(fileId) {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions?fields=permissions(id,emailAddress,role)', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const json = await res.json();
+  return json.permissions || [];
+}
+
+async function driveAddPermission(fileId, email) {
+  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions?sendNotificationEmail=true', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: email })
+  });
+}
+
+async function driveRemovePermission(fileId, permissionId) {
+  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions/' + permissionId, {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+}
+
+async function saveData() {
+  try {
+    await driveUpdateFile(driveFileId, state);
+  } catch (e) {
+    alert('保存に失敗しました。インターネット接続を確認してください。');
+  }
+}
+
+async function refreshFromDrive() {
+  if (!driveFileId) return;
+  try {
+    state = await driveGetFileContent(driveFileId);
+  } catch (e) {
+    // 読み込みに失敗した場合は、直前の内容のまま表示を続けます
+  }
+}
+
+/* ===========================================================
    タブ切り替え
 =========================================================== */
-function showTab(name) {
+async function showTab(name) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('current'));
   document.querySelector('.tab-btn[data-tab="' + name + '"]').classList.add('current');
+
+  await refreshFromDrive();
 
   if (name === 'list') renderList();
   if (name === 'graph') renderGraph();
@@ -478,6 +656,7 @@ function showTab(name) {
   if (name === 'cat') renderCatInfo();
   if (name === 'food') renderFoodList();
   if (name === 'record') renderFoodSelect();
+  if (name === 'members') renderMemberList();
 }
 
 function initAppScreens() {
@@ -652,7 +831,7 @@ function addRecord() {
   if (!food) { alert('フードを選んでください'); return; }
   const time = document.getElementById('inTime').value;
 
-  const rec = { id: uid(), date: todayStr(), time, foodId: food.id, foodName: food.name, foodType: food.type, user: state.currentUser };
+  const rec = { id: uid(), date: todayStr(), time, foodId: food.id, foodName: food.name, foodType: food.type, user: currentUserName };
 
   if (food.type === 'main') {
     const g = parseFloat(document.getElementById('inGrams').value);
@@ -836,6 +1015,68 @@ function renderHealthList() {
 }
 
 /* ===========================================================
+   メンバー管理
+=========================================================== */
+async function addMember() {
+  const input = document.getElementById('memberEmail');
+  const email = input.value.trim();
+  if (!email) { alert('メールアドレスを入力してください'); return; }
+
+  const already = (state.members || []).some(e => e.toLowerCase() === email.toLowerCase());
+  if (already) { alert('すでに登録されています'); return; }
+
+  try {
+    await driveAddPermission(driveFolderId, email);
+  } catch (e) {
+    alert('共有の設定に失敗しました。メールアドレスを確認してください。');
+    return;
+  }
+
+  state.members.push(email);
+  await saveData();
+
+  input.value = '';
+  flashMsg('memberSavedMsg');
+  renderMemberList();
+}
+
+async function removeMember(email) {
+  if (email.toLowerCase() === currentUserEmail.toLowerCase()) {
+    alert('自分自身は削除できません');
+    return;
+  }
+  if (!confirm(email + ' を削除しますか？')) return;
+
+  try {
+    const permissions = await driveListPermissions(driveFolderId);
+    const target = permissions.find(p => (p.emailAddress || '').toLowerCase() === email.toLowerCase());
+    if (target) await driveRemovePermission(driveFolderId, target.id);
+  } catch (e) {
+    // 共有解除に失敗しても、メンバー一覧からは削除します
+  }
+
+  state.members = state.members.filter(e => e.toLowerCase() !== email.toLowerCase());
+  await saveData();
+  renderMemberList();
+}
+
+function renderMemberList() {
+  const area = document.getElementById('memberList');
+  area.innerHTML = '';
+  (state.members || []).forEach(email => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    div.innerHTML = '<div class="info"><div class="name">' + escapeHtml(email) + '</div></div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => removeMember(email);
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+/* ===========================================================
    共通ユーティリティ
 =========================================================== */
 function flashMsg(id) {
@@ -850,14 +1091,6 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-/* ===========================================================
-   起動
-=========================================================== */
-renderLogin();
-if (state.currentUser && state.users.includes(state.currentUser)) {
-  showApp();
 }
 </script>
 </body>
