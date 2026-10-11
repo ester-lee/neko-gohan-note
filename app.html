@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ねこごはんノート</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    background: #eee;
+    color: #4a3b2a;
+  }
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: #fff6e8;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  }
+  h1 { font-size: 22px; margin: 0; }
+
+  /* ===== ヘッダー・タブ ===== */
+  header {
+    background: #ffd966;
+    padding: 16px 16px 0;
+    border-bottom: 2px solid #ffc53d;
+  }
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .user-badge { font-size: 14px; color: #6b5420; }
+  .logout-btn {
+    font-size: 13px;
+    background: none;
+    border: 1px solid #a9892f;
+    border-radius: 8px;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: #6b5420;
+  }
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 2px;
+  }
+  .tab-btn {
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: bold;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #8a6d2f;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  .tab-btn.current {
+    color: #ff6f3c;
+    border-bottom: 3px solid #ff6f3c;
+    background: #fff2d6;
+  }
+
+  .content { padding: 20px; padding-bottom: 60px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .title { font-size: 22px; font-weight: bold; margin-bottom: 16px; }
+  .card {
+    background: #ffffff;
+    border: 2px dashed #ffc53d;
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .field-label { font-size: 15px; margin-bottom: 6px; display: block; font-weight: bold; }
+  .field-input, select, textarea {
+    width: 100%;
+    font-size: 18px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 2px solid #ffc53d;
+    margin-bottom: 14px;
+    background: #fffaf0;
+    font-family: inherit;
+    color: #4a3b2a;
+  }
+  .big-btn {
+    width: 100%;
+    font-size: 19px;
+    font-weight: bold;
+    padding: 15px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    background: #ff6f3c;
+    color: #fff;
+  }
+  .big-btn:active { opacity: 0.85; }
+  .small-btn {
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: #ff6f3c;
+    color: #fff;
+    font-weight: bold;
+  }
+  .ghost-btn {
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 2px solid #ff6f3c;
+    cursor: pointer;
+    background: #fff;
+    color: #ff6f3c;
+    font-weight: bold;
+  }
+  .danger-btn {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background: #ffe3e3;
+    color: #c0392b;
+  }
+  .result-box {
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    padding: 18px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+    background: #d7f5e3;
+    color: #1f8a53;
+  }
+  .sub-note { font-size: 13px; color: #8a6d2f; margin-top: -6px; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #ffe0a3; }
+  th { color: #8a6d2f; }
+
+  .list-item {
+    background: #fff;
+    border: 2px dashed #ffc53d;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .list-item .info { font-size: 14px; line-height: 1.5; }
+  .list-item .name { font-weight: bold; font-size: 16px; }
+
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+  .login-wrap h1 { font-size: 26px; margin-bottom: 8px; }
+  .login-wrap p { color: #8a6d2f; margin-bottom: 24px; }
+  .user-list { width: 100%; max-width: 320px; }
+  .user-choice {
+    width: 100%;
+    font-size: 18px;
+    padding: 14px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    border: 2px solid #ffc53d;
+    background: #fff;
+    cursor: pointer;
+    font-weight: bold;
+    color: #4a3b2a;
+  }
+  .new-user-box {
+    width: 100%;
+    max-width: 320px;
+    margin-top: 20px;
+    background: #fff;
+    border: 2px dashed #ffc53d;
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  .empty-msg { color: #a9892f; font-size: 14px; padding: 10px 0; }
+
+  canvas { width: 100%; height: 220px; background: #fff; border-radius: 12px; border: 2px dashed #ffc53d; }
+
+  .save-ok {
+    display: none;
+    background: #d7f5e3;
+    color: #1f8a53;
+    font-size: 14px;
+    text-align: center;
+    padding: 8px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ===== ログイン画面 ===== -->
+  <div id="loginScreen" class="login-wrap">
+    <h1>🐾 ねこごはんノート</h1>
+    <p>どなたですか？お名前を選んでください</p>
+    <div class="user-list" id="userList"></div>
+    <div class="new-user-box">
+      <label class="field-label">はじめての方はお名前を入力</label>
+      <input type="text" id="newUserName" class="field-input" placeholder="例：きよ">
+      <button class="big-btn" onclick="addUserAndLogin()">この名前で始める</button>
+    </div>
+  </div>
+
+  <!-- ===== アプリ本体 ===== -->
+  <div id="appScreen" style="display:none;">
+    <header>
+      <div class="header-row">
+        <h1>🐾 ねこごはんノート</h1>
+        <div>
+          <span class="user-badge" id="currentUserLabel"></span>
+          <button class="logout-btn" onclick="logout()">切替</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn" data-tab="record" onclick="showTab('record')">記録入力</button>
+        <button class="tab-btn" data-tab="list" onclick="showTab('list')">一覧</button>
+        <button class="tab-btn" data-tab="graph" onclick="showTab('graph')">グラフ</button>
+        <button class="tab-btn" data-tab="health" onclick="showTab('health')">体調メモ</button>
+        <button class="tab-btn" data-tab="cat" onclick="showTab('cat')">猫の情報</button>
+        <button class="tab-btn" data-tab="food" onclick="showTab('food')">フード管理</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- 記録入力 -->
+      <div class="screen" id="screen-record">
+        <div class="title">ご飯を記録する</div>
+        <div class="save-ok" id="recordSavedMsg">記録しました！</div>
+        <div class="card">
+          <label class="field-label">時間帯</label>
+          <select id="inTime">
+            <option value="朝">朝</option>
+            <option value="おやつ">おやつ</option>
+            <option value="夜">夜</option>
+          </select>
+
+          <label class="field-label">フード</label>
+          <select id="inFood" onchange="onFoodChange()"></select>
+
+          <div id="mainFoodFields">
+            <label class="field-label">グラム数</label>
+            <input type="number" id="inGrams" class="field-input" placeholder="例：40" min="0" step="0.1">
+          </div>
+
+          <div id="treatFields" style="display:none;">
+            <label class="field-label">個数（本・袋）</label>
+            <input type="number" id="inCount" class="field-input" placeholder="例：1" min="0" step="1" oninput="updateTreatKcal()">
+            <label class="field-label">カロリー（自動計算）</label>
+            <input type="text" id="inKcalShow" class="field-input" readonly>
+          </div>
+        </div>
+
+        <div class="result-box" id="nextMealBox">フードを選ぶと、目安が表示されます</div>
+
+        <button class="big-btn" onclick="addRecord()">記録する にゃ！</button>
+      </div>
+
+      <!-- 一覧 -->
+      <div class="screen" id="screen-list">
+        <div class="title">記録の一覧</div>
+        <label class="field-label">表示する期間</label>
+        <select id="listRange" onchange="renderList()">
+          <option value="today">今日</option>
+          <option value="week">過去7日</option>
+          <option value="all">すべて（過去半年分）</option>
+        </select>
+        <div id="listArea"></div>
+      </div>
+
+      <!-- グラフ -->
+      <div class="screen" id="screen-graph">
+        <div class="title">食事量のグラフ</div>
+        <div class="sub-note">直近14日間の、主食の合計グラム数です</div>
+        <canvas id="graphCanvas" width="440" height="220"></canvas>
+        <div id="graphEmpty" class="empty-msg" style="display:none;">まだ記録がありません</div>
+      </div>
+
+      <!-- 体調メモ -->
+      <div class="screen" id="screen-health">
+        <div class="title">体調メモ</div>
+        <div class="save-ok" id="healthSavedMsg">保存しました！</div>
+        <div class="card">
+          <label class="field-label">日付</label>
+          <input type="date" id="healthDate" class="field-input">
+          <label class="field-label">体重（kg）</label>
+          <input type="number" id="healthWeight" class="field-input" placeholder="例：4.2" step="0.01">
+          <label class="field-label">メモ</label>
+          <textarea id="healthMemo" rows="3" placeholder="気になったことを書いてください"></textarea>
+          <button class="big-btn" onclick="addHealthNote()">保存する</button>
+        </div>
+        <div class="title" style="font-size:18px;">これまでのメモ</div>
+        <div id="healthList"></div>
+      </div>
+
+      <!-- 猫の情報 -->
+      <div class="screen" id="screen-cat">
+        <div class="title">猫の情報</div>
+        <div class="save-ok" id="catSavedMsg">保存しました！</div>
+        <div class="card">
+          <label class="field-label">名前</label>
+          <input type="text" id="catName" class="field-input" placeholder="例：もも">
+          <label class="field-label">標準体重（kg）</label>
+          <input type="number" id="catWeight" class="field-input" placeholder="例：4.0" step="0.01">
+          <label class="field-label">年齢</label>
+          <input type="number" id="catAge" class="field-input" placeholder="例：3" step="1" min="0">
+          <button class="big-btn" onclick="saveCatInfo()">保存する</button>
+        </div>
+      </div>
+
+      <!-- フード管理 -->
+      <div class="screen" id="screen-food">
+        <div class="title">フード管理</div>
+        <div class="save-ok" id="foodSavedMsg">保存しました！</div>
+        <div class="card">
+          <label class="field-label">種類</label>
+          <select id="foodType" onchange="onFoodTypeChange()">
+            <option value="main">主食</option>
+            <option value="treat">おやつ</option>
+          </select>
+
+          <label class="field-label">フード名</label>
+          <input type="text" id="foodName" class="field-input" placeholder="例：カルカン ビーフ">
+
+          <div id="foodMainField">
+            <label class="field-label">1日の給餌目安量（グラム）</label>
+            <input type="number" id="foodDailyGrams" class="field-input" placeholder="例：45" step="0.1">
+          </div>
+
+          <div id="foodTreatField" style="display:none;">
+            <label class="field-label">1つ（本・袋）あたりのカロリー（kcal）</label>
+            <input type="number" id="foodTreatKcal" class="field-input" placeholder="例：7" step="0.1">
+          </div>
+
+          <button class="big-btn" onclick="addFood()">フードを追加する</button>
+        </div>
+        <div class="title" style="font-size:18px;">登録済みのフード</div>
+        <div id="foodList"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   データの読み書き（ブラウザの中に保存。外部通信はしません）
+=========================================================== */
+const STORAGE_KEY = 'nekogohan_data_v1';
+
+function defaultData() {
+  return {
+    users: [],
+    currentUser: null,
+    cat: { name: '', weight: '', age: '' },
+    foods: [],      // {id, type:'main'|'treat', name, dailyGrams, treatKcal}
+    records: [],     // {id, date, time, foodId, foodName, foodType, grams, kcal, user}
+    health: []       // {id, date, weight, memo}
+  };
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultData();
+    const parsed = JSON.parse(raw);
+    return Object.assign(defaultData(), parsed);
+  } catch (e) {
+    return defaultData();
+  }
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let state = loadData();
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* ===========================================================
+   ログイン
+=========================================================== */
+function renderLogin() {
+  const list = document.getElementById('userList');
+  list.innerHTML = '';
+  state.users.forEach(u => {
+    const btn = document.createElement('button');
+    btn.className = 'user-choice';
+    btn.textContent = u;
+    btn.onclick = () => login(u);
+    list.appendChild(btn);
+  });
+}
+
+function addUserAndLogin() {
+  const input = document.getElementById('newUserName');
+  const name = input.value.trim();
+  if (!name) {
+    alert('お名前を入力してください');
+    return;
+  }
+  if (!state.users.includes(name)) {
+    state.users.push(name);
+    saveData();
+  }
+  login(name);
+}
+
+function login(name) {
+  state.currentUser = name;
+  saveData();
+  showApp();
+}
+
+function logout() {
+  state.currentUser = null;
+  saveData();
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  renderLogin();
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('currentUserLabel').textContent = state.currentUser + ' さん';
+  initAppScreens();
+  showTab('record');
+}
+
+/* ===========================================================
+   タブ切り替え
+=========================================================== */
+function showTab(name) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('current'));
+  document.querySelector('.tab-btn[data-tab="' + name + '"]').classList.add('current');
+
+  if (name === 'list') renderList();
+  if (name === 'graph') renderGraph();
+  if (name === 'health') renderHealthList();
+  if (name === 'cat') renderCatInfo();
+  if (name === 'food') renderFoodList();
+  if (name === 'record') renderFoodSelect();
+}
+
+function initAppScreens() {
+  renderFoodSelect();
+  document.getElementById('healthDate').value = todayStr();
+}
+
+/* ===========================================================
+   猫の情報
+=========================================================== */
+function renderCatInfo() {
+  document.getElementById('catName').value = state.cat.name || '';
+  document.getElementById('catWeight').value = state.cat.weight || '';
+  document.getElementById('catAge').value = state.cat.age || '';
+}
+
+function saveCatInfo() {
+  state.cat.name = document.getElementById('catName').value.trim();
+  state.cat.weight = document.getElementById('catWeight').value;
+  state.cat.age = document.getElementById('catAge').value;
+  saveData();
+  flashMsg('catSavedMsg');
+  renderFoodSelect();
+}
+
+/* ===========================================================
+   フード管理
+=========================================================== */
+function onFoodTypeChange() {
+  const type = document.getElementById('foodType').value;
+  document.getElementById('foodMainField').style.display = (type === 'main') ? 'block' : 'none';
+  document.getElementById('foodTreatField').style.display = (type === 'treat') ? 'block' : 'none';
+}
+
+function addFood() {
+  const type = document.getElementById('foodType').value;
+  const name = document.getElementById('foodName').value.trim();
+  if (!name) { alert('フード名を入力してください'); return; }
+
+  const food = { id: uid(), type, name };
+  if (type === 'main') {
+    const g = parseFloat(document.getElementById('foodDailyGrams').value);
+    if (isNaN(g) || g <= 0) { alert('1日の給餌目安量を入力してください'); return; }
+    food.dailyGrams = g;
+  } else {
+    const k = parseFloat(document.getElementById('foodTreatKcal').value);
+    if (isNaN(k) || k <= 0) { alert('1つあたりのカロリーを入力してください'); return; }
+    food.treatKcal = k;
+  }
+
+  state.foods.push(food);
+  saveData();
+
+  document.getElementById('foodName').value = '';
+  document.getElementById('foodDailyGrams').value = '';
+  document.getElementById('foodTreatKcal').value = '';
+
+  flashMsg('foodSavedMsg');
+  renderFoodList();
+  renderFoodSelect();
+}
+
+function deleteFood(id) {
+  if (!confirm('このフードを削除しますか？')) return;
+  state.foods = state.foods.filter(f => f.id !== id);
+  saveData();
+  renderFoodList();
+  renderFoodSelect();
+}
+
+function renderFoodList() {
+  const area = document.getElementById('foodList');
+  area.innerHTML = '';
+  if (state.foods.length === 0) {
+    area.innerHTML = '<div class="empty-msg">まだフードが登録されていません</div>';
+    return;
+  }
+  state.foods.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    const detail = f.type === 'main'
+      ? '主食 ／ 1日の目安：' + f.dailyGrams + ' g'
+      : 'おやつ ／ 1個あたり：' + f.treatKcal + ' kcal';
+    div.innerHTML = '<div class="info"><div class="name">' + escapeHtml(f.name) + '</div><div>' + detail + '</div></div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => deleteFood(f.id);
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+/* ===========================================================
+   記録入力
+=========================================================== */
+function renderFoodSelect() {
+  const sel = document.getElementById('inFood');
+  const prevValue = sel.value;
+  sel.innerHTML = '';
+  if (state.foods.length === 0) {
+    sel.innerHTML = '<option value="">（フード管理タブで登録してください）</option>';
+    document.getElementById('nextMealBox').textContent = 'まずフードを登録してください';
+    return;
+  }
+  state.foods.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.name + (f.type === 'main' ? '（主食）' : '（おやつ）');
+    sel.appendChild(opt);
+  });
+  if (prevValue) sel.value = prevValue;
+  onFoodChange();
+}
+
+function getSelectedFood() {
+  const id = document.getElementById('inFood').value;
+  return state.foods.find(f => f.id === id);
+}
+
+function onFoodChange() {
+  const food = getSelectedFood();
+  const mainFields = document.getElementById('mainFoodFields');
+  const treatFields = document.getElementById('treatFields');
+  if (!food) {
+    mainFields.style.display = 'block';
+    treatFields.style.display = 'none';
+    return;
+  }
+  if (food.type === 'main') {
+    mainFields.style.display = 'block';
+    treatFields.style.display = 'none';
+    updateNextMealSuggestion();
+  } else {
+    mainFields.style.display = 'none';
+    treatFields.style.display = 'block';
+    document.getElementById('inCount').value = '';
+    document.getElementById('inKcalShow').value = '';
+    updateNextMealSuggestion();
+  }
+}
+
+function updateTreatKcal() {
+  const food = getSelectedFood();
+  const count = parseFloat(document.getElementById('inCount').value) || 0;
+  if (food && food.type === 'treat') {
+    document.getElementById('inKcalShow').value = (count * food.treatKcal).toFixed(1) + ' kcal';
+  }
+}
+
+function todayRecordsForFood(foodId) {
+  const t = todayStr();
+  return state.records.filter(r => r.date === t && r.foodId === foodId);
+}
+
+function updateNextMealSuggestion() {
+  const food = getSelectedFood();
+  const box = document.getElementById('nextMealBox');
+  if (!food) { box.textContent = 'フードを選ぶと、目安が表示されます'; return; }
+  if (food.type === 'main') {
+    const given = todayRecordsForFood(food.id).reduce((sum, r) => sum + (r.grams || 0), 0);
+    const remain = Math.max(0, food.dailyGrams - given);
+    box.textContent = '次の「' + food.name + '」の目安：' + remain.toFixed(1) + ' g（本日の残り）';
+  } else {
+    const givenKcal = todayRecordsForFood(food.id).reduce((sum, r) => sum + (r.kcal || 0), 0);
+    box.textContent = '本日の「' + food.name + '」合計カロリー：' + givenKcal.toFixed(1) + ' kcal';
+  }
+}
+
+function addRecord() {
+  const food = getSelectedFood();
+  if (!food) { alert('フードを選んでください'); return; }
+  const time = document.getElementById('inTime').value;
+
+  const rec = { id: uid(), date: todayStr(), time, foodId: food.id, foodName: food.name, foodType: food.type, user: state.currentUser };
+
+  if (food.type === 'main') {
+    const g = parseFloat(document.getElementById('inGrams').value);
+    if (isNaN(g) || g <= 0) { alert('グラム数を入力してください'); return; }
+    rec.grams = g;
+    rec.kcal = 0;
+  } else {
+    const c = parseFloat(document.getElementById('inCount').value);
+    if (isNaN(c) || c <= 0) { alert('個数を入力してください'); return; }
+    rec.grams = 0;
+    rec.kcal = c * food.treatKcal;
+  }
+
+  state.records.push(rec);
+  saveData();
+
+  document.getElementById('inGrams').value = '';
+  document.getElementById('inCount').value = '';
+  document.getElementById('inKcalShow').value = '';
+
+  flashMsg('recordSavedMsg');
+  updateNextMealSuggestion();
+}
+
+/* ===========================================================
+   一覧
+=========================================================== */
+function renderList() {
+  const range = document.getElementById('listRange').value;
+  const area = document.getElementById('listArea');
+  area.innerHTML = '';
+
+  let records = [...state.records].sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+
+  if (range === 'today') {
+    const t = todayStr();
+    records = records.filter(r => r.date === t);
+  } else if (range === 'week') {
+    const limit = new Date();
+    limit.setDate(limit.getDate() - 7);
+    records = records.filter(r => new Date(r.date) >= limit);
+  }
+  // 'all' はそのまま（過去半年分も含め、すべての記録を保持しています）
+
+  if (records.length === 0) {
+    area.innerHTML = '<div class="empty-msg">記録がありません</div>';
+    return;
+  }
+
+  records.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    const amount = r.foodType === 'main' ? r.grams + ' g' : r.kcal.toFixed(1) + ' kcal';
+    div.innerHTML =
+      '<div class="info">' +
+      '<div class="name">' + r.date + '　' + r.time + '</div>' +
+      '<div>' + escapeHtml(r.foodName) + '　' + amount + '　（記録：' + escapeHtml(r.user || '') + '）</div>' +
+      '</div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => deleteRecord(r.id);
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+function deleteRecord(id) {
+  if (!confirm('この記録を削除しますか？')) return;
+  state.records = state.records.filter(r => r.id !== id);
+  saveData();
+  renderList();
+}
+
+/* ===========================================================
+   グラフ（主食の合計グラム数／直近14日）
+=========================================================== */
+function renderGraph() {
+  const canvas = document.getElementById('graphCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    days.push(key);
+  }
+
+  const totals = days.map(day =>
+    state.records
+      .filter(r => r.date === day && r.foodType === 'main')
+      .reduce((sum, r) => sum + (r.grams || 0), 0)
+  );
+
+  const hasData = totals.some(v => v > 0);
+  document.getElementById('graphEmpty').style.display = hasData ? 'none' : 'block';
+
+  const max = Math.max(1, ...totals);
+  const padding = 24;
+  const w = canvas.width;
+  const h = canvas.height;
+  const barAreaW = w - padding * 2;
+  const barAreaH = h - padding * 2;
+  const barW = barAreaW / days.length * 0.6;
+  const gap = barAreaW / days.length;
+
+  ctx.strokeStyle = '#ffc53d';
+  ctx.beginPath();
+  ctx.moveTo(padding, h - padding);
+  ctx.lineTo(w - padding, h - padding);
+  ctx.stroke();
+
+  days.forEach((day, i) => {
+    const val = totals[i];
+    const barH = (val / max) * barAreaH;
+    const x = padding + i * gap + (gap - barW) / 2;
+    const y = h - padding - barH;
+    ctx.fillStyle = '#ff6f3c';
+    ctx.fillRect(x, y, barW, barH);
+
+    if (i % 2 === 0) {
+      ctx.fillStyle = '#8a6d2f';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(day.slice(5), x + barW / 2, h - padding + 12);
+    }
+  });
+}
+
+/* ===========================================================
+   体調メモ
+=========================================================== */
+function addHealthNote() {
+  const date = document.getElementById('healthDate').value || todayStr();
+  const weight = document.getElementById('healthWeight').value;
+  const memo = document.getElementById('healthMemo').value.trim();
+  if (!weight && !memo) { alert('体重かメモのどちらかを入力してください'); return; }
+
+  state.health.push({ id: uid(), date, weight, memo });
+  saveData();
+
+  document.getElementById('healthWeight').value = '';
+  document.getElementById('healthMemo').value = '';
+
+  flashMsg('healthSavedMsg');
+  renderHealthList();
+}
+
+function deleteHealthNote(id) {
+  if (!confirm('このメモを削除しますか？')) return;
+  state.health = state.health.filter(h => h.id !== id);
+  saveData();
+  renderHealthList();
+}
+
+function renderHealthList() {
+  const area = document.getElementById('healthList');
+  area.innerHTML = '';
+  const items = [...state.health].sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (items.length === 0) {
+    area.innerHTML = '<div class="empty-msg">まだメモがありません</div>';
+    return;
+  }
+  items.forEach(h => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    div.innerHTML =
+      '<div class="info">' +
+      '<div class="name">' + h.date + (h.weight ? '　' + h.weight + ' kg' : '') + '</div>' +
+      '<div>' + escapeHtml(h.memo || '') + '</div>' +
+      '</div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => deleteHealthNote(h.id);
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+/* ===========================================================
+   共通ユーティリティ
+=========================================================== */
+function flashMsg(id) {
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 1500);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ===========================================================
+   起動
+=========================================================== */
+renderLogin();
+if (state.currentUser && state.users.includes(state.currentUser)) {
+  showApp();
+}
+</script>
+</body>
+</html>
