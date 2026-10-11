@@ -457,7 +457,7 @@ async function onTokenReceived(resp) {
   try {
     await afterSignIn();
   } catch (e) {
-    showLoginError('通信中にエラーが発生しました。インターネット接続を確認してください。');
+    showLoginError('エラーが発生しました（詳細：' + (e && e.message ? e.message : e) + '）');
   }
 }
 
@@ -535,12 +535,17 @@ async function fetchUserInfo() {
   return res.json();
 }
 
+function driveErrorMessage(json, fallback) {
+  return (json && json.error && json.error.message) ? json.error.message : fallback;
+}
+
 async function driveFindFolder(name) {
   const q = encodeURIComponent("name='" + name + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
   const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)', {
     headers: { Authorization: 'Bearer ' + accessToken }
   });
   const json = await res.json();
+  if (!res.ok) throw new Error('フォルダ検索に失敗: ' + driveErrorMessage(json, res.status));
   return (json.files && json.files.length > 0) ? json.files[0] : null;
 }
 
@@ -551,6 +556,7 @@ async function driveCreateFolder(name) {
     body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' })
   });
   const json = await res.json();
+  if (!res.ok) throw new Error('フォルダ作成に失敗: ' + driveErrorMessage(json, res.status));
   return json.id;
 }
 
@@ -560,6 +566,7 @@ async function driveFindFileInFolder(folderId, filename) {
     headers: { Authorization: 'Bearer ' + accessToken }
   });
   const json = await res.json();
+  if (!res.ok) throw new Error('ファイル検索に失敗: ' + driveErrorMessage(json, res.status));
   return (json.files && json.files.length > 0) ? json.files[0] : null;
 }
 
@@ -581,6 +588,7 @@ async function driveCreateFile(name, parentId, contentObj) {
     body
   });
   const json = await res.json();
+  if (!res.ok) throw new Error('ファイル作成に失敗: ' + driveErrorMessage(json, res.status));
   return json.id;
 }
 
