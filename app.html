@@ -372,11 +372,12 @@
         <div class="title">メンバー管理</div>
         <div class="sub-note">ここに追加したGoogleアカウントだけが、ログインできます</div>
         <div class="save-ok" id="memberSavedMsg">追加しました！</div>
-        <div class="card">
+        <div class="card" id="memberAddCard">
           <label class="field-label">追加するGoogleアカウント（メールアドレス）</label>
           <input type="email" id="memberEmail" class="field-input" placeholder="例：family@gmail.com">
           <button class="big-btn" onclick="addMember()">メンバーを追加する</button>
         </div>
+        <div class="sub-note" id="memberNotOwnerMsg" style="display:none;">メンバーの追加・削除は、管理者アカウントのみ行えます</div>
         <div class="title" style="font-size:18px;">現在のメンバー</div>
         <div id="memberList"></div>
       </div>
@@ -1081,7 +1082,12 @@ function renderHealthList() {
 /* ===========================================================
    メンバー管理
 =========================================================== */
+function isOwner() {
+  return currentUserEmail && currentUserEmail.toLowerCase() === INITIAL_OWNER_EMAIL.toLowerCase();
+}
+
 async function addMember() {
+  if (!isOwner()) { alert('メンバーの追加は、管理者アカウントのみ行えます'); return; }
   const input = document.getElementById('memberEmail');
   const email = input.value.trim();
   if (!email) { alert('メールアドレスを入力してください'); return; }
@@ -1105,6 +1111,7 @@ async function addMember() {
 }
 
 async function removeMember(email) {
+  if (!isOwner()) { alert('メンバーの削除は、管理者アカウントのみ行えます'); return; }
   if (email.toLowerCase() === currentUserEmail.toLowerCase()) {
     alert('自分自身は削除できません');
     return;
@@ -1125,17 +1132,23 @@ async function removeMember(email) {
 }
 
 function renderMemberList() {
+  const owner = isOwner();
+  document.getElementById('memberAddCard').style.display = owner ? 'block' : 'none';
+  document.getElementById('memberNotOwnerMsg').style.display = owner ? 'none' : 'block';
+
   const area = document.getElementById('memberList');
   area.innerHTML = '';
   (state.members || []).forEach(email => {
     const div = document.createElement('div');
     div.className = 'list-item';
     div.innerHTML = '<div class="info"><div class="name">' + escapeHtml(email) + '</div></div>';
-    const delBtn = document.createElement('button');
-    delBtn.className = 'danger-btn';
-    delBtn.textContent = '削除';
-    delBtn.onclick = () => removeMember(email);
-    div.appendChild(delBtn);
+    if (owner) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'danger-btn';
+      delBtn.textContent = '削除';
+      delBtn.onclick = () => removeMember(email);
+      div.appendChild(delBtn);
+    }
     area.appendChild(div);
   });
 }
