@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ねこごはんノート</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://apis.google.com/js/api.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -222,10 +221,6 @@
       <button class="big-btn" id="googleLoginBtn" onclick="startLogin()">Googleでログイン</button>
       <div class="login-loading" id="loginLoading">確認しています…</div>
       <div class="login-error" id="loginError"></div>
-      <div id="pickerPrompt" style="display:none;">
-        <div class="sub-note" style="margin-top:16px;">共有されている「ねこごはんノート」フォルダの中の「data.json」を選んでください（初回のみ）</div>
-        <button class="big-btn" onclick="openPicker()">ファイルを選ぶ</button>
-      </div>
     </div>
   </div>
 
@@ -391,8 +386,7 @@
    Google ログイン・Googleドライブへの保存設定
 =========================================================== */
 const CLIENT_ID = '932666241542-9alot7gjfrb2bqado55oi4h7225of0eq.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyCHWlHaET-T_nnmqFJLfXcZEbsaynfuUAc';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 const FOLDER_NAME = 'ねこごはんノート';
 const INITIAL_OWNER_EMAIL = 'kk.whiteberry.1249@gmail.com';
 
@@ -402,10 +396,6 @@ let currentUserEmail = null;
 let currentUserName = null;
 let driveFolderId = null;
 let driveFileId = null;
-let driveFileResourceKey = null;
-let pickerApiLoaded = false;
-
-gapi.load('picker', () => { pickerApiLoaded = true; });
 
 function defaultData() {
   return {
@@ -453,7 +443,6 @@ function showLoginError(msg) {
   el.textContent = msg;
   el.style.display = 'block';
   document.getElementById('loginLoading').style.display = 'none';
-  document.getElementById('pickerPrompt').style.display = 'none';
   document.getElementById('googleLoginBtn').style.display = 'block';
   accessToken = null;
 }
@@ -480,13 +469,11 @@ async function afterSignIn() {
 
   const folder = await driveFindFolder(FOLDER_NAME);
 
-  if (folder) {
-    driveFolderId = folder.id;
-    await loadDataFileAndEnter();
-    return;
-  }
-
-  if (currentUserEmail.toLowerCase() === INITIAL_OWNER_EMAIL.toLowerCase()) {
+  if (!folder) {
+    if (currentUserEmail.toLowerCase() !== INITIAL_OWNER_EMAIL.toLowerCase()) {
+      showLoginError('このGoogleアカウントはまだ招待されていません。管理者に追加してもらってください。');
+      return;
+    }
     driveFolderId = await driveCreateFolder(FOLDER_NAME);
     state = defaultData();
     state.members = [INITIAL_OWNER_EMAIL];
@@ -495,71 +482,23 @@ async function afterSignIn() {
     return;
   }
 
-  document.getElementById('loginLoading').style.display = 'none';
-  document.getElementById('pickerPrompt').style.display = 'block';
-}
-
-async function loadDataFileAndEnter() {
+  driveFolderId = folder.id;
   const file = await driveFindFileInFolder(driveFolderId, 'data.json');
   if (!file) {
-    showLoginError('フォルダの中に、データファイルが見つかりませんでした。フォルダの選び間違いの可能性があります。');
-    return;
+    state = defaultData();
+    state.members = [currentUserEmail];
+    driveFileId = await driveCreateFile('data.json', driveFolderId, state);
+  } else {
+    driveFileId = file.id;
+    state = await driveGetFileContent(driveFileId);
   }
-  driveFileId = file.id;
-  state = await driveGetFileContent(driveFileId);
   const allowed = (state.members || []).map(e => e.toLowerCase());
   if (!allowed.includes(currentUserEmail.toLowerCase())) {
     showLoginError('このGoogleアカウントは、メンバーとして登録されていません。');
     return;
   }
+
   showApp();
-}
-
-/* ===========================================================
-   フォルダ選択（招待された家族の初回ログイン時のみ）
-=========================================================== */
-function openPicker() {
-  if (!pickerApiLoaded) {
-    alert('ファイル選択の準備中です。少し待ってからもう一度お試しください。');
-    return;
-  }
-  const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
-    .setIncludeFolders(true)
-    .setSelectFolderEnabled(false)
-    .setMode(google.picker.DocsViewMode.LIST);
-
-  const picker = new google.picker.PickerBuilder()
-    .addView(view)
-    .setOAuthToken(accessToken)
-    .setDeveloperKey(API_KEY)
-    .setCallback(onPickerSelected)
-    .build();
-  picker.setVisible(true);
-}
-
-async function onPickerSelected(data) {
-  if (data.action !== google.picker.Action.PICKED) return;
-  const doc = data.docs[0];
-  if (doc.name !== 'data.json') {
-    alert('「ねこごはんノート」フォルダの中の「data.json」を選んでください（選んだのは「' + doc.name + '」でした）');
-    return;
-  }
-  document.getElementById('pickerPrompt').style.display = 'none';
-  document.getElementById('loginLoading').style.display = 'block';
-  try {
-    const resolved = await resolvePickedFile(doc.id, doc.resourceKey || null);
-    driveFileId = resolved.id;
-    driveFileResourceKey = resolved.resourceKey;
-    state = await driveGetFileContent(driveFileId);
-    const allowed = (state.members || []).map(e => e.toLowerCase());
-    if (!allowed.includes(currentUserEmail.toLowerCase())) {
-      showLoginError('このGoogleアカウントは、メンバーとして登録されていません。');
-      return;
-    }
-    showApp();
-  } catch (e) {
-    showLoginError('エラーが発生しました（詳細：' + (e && e.message ? e.message : e) + '）');
-  }
 }
 
 function logout() {
@@ -577,7 +516,6 @@ function logout() {
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('googleLoginBtn').style.display = 'block';
   document.getElementById('loginLoading').style.display = 'none';
-  document.getElementById('pickerPrompt').style.display = 'none';
   hideLoginError();
 }
 
@@ -661,7 +599,7 @@ async function driveCreateFile(name, parentId, contentObj) {
 async function driveUpdateFile(fileId, contentObj) {
   const res = await fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
     method: 'PATCH',
-    headers: driveHeaders(fileId, { 'Content-Type': 'application/json' }),
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
     body: JSON.stringify(contentObj)
   });
   if (!res.ok) {
@@ -672,34 +610,9 @@ async function driveUpdateFile(fileId, contentObj) {
   }
 }
 
-function driveHeaders(fileId, extra) {
-  const headers = Object.assign({ Authorization: 'Bearer ' + accessToken }, extra || {});
-  if (driveFileResourceKey && fileId === driveFileId) {
-    headers['X-Goog-Drive-Resource-Keys'] = fileId + '/' + driveFileResourceKey;
-  }
-  return headers;
-}
-
-async function resolvePickedFile(fileId, resourceKey) {
-  const headers = { Authorization: 'Bearer ' + accessToken };
-  if (resourceKey) headers['X-Goog-Drive-Resource-Keys'] = fileId + '/' + resourceKey;
-
-  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?fields=id,name,mimeType,shortcutDetails', { headers });
-  const json = await res.json();
-  if (!res.ok) throw new Error('ファイル情報の取得に失敗: ' + driveErrorMessage(json, res.status));
-
-  if (json.mimeType === 'application/vnd.google-apps.shortcut' && json.shortcutDetails) {
-    return {
-      id: json.shortcutDetails.targetId,
-      resourceKey: json.shortcutDetails.targetResourceKey || null
-    };
-  }
-  return { id: fileId, resourceKey: resourceKey };
-}
-
 async function driveGetFileContent(fileId) {
   const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&_=' + Date.now(), {
-    headers: driveHeaders(fileId),
+    headers: { Authorization: 'Bearer ' + accessToken },
     cache: 'no-store'
   });
   const text = await res.text();
