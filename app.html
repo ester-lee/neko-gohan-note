@@ -668,7 +668,17 @@ async function driveGetFileContent(fileId) {
     headers: { Authorization: 'Bearer ' + accessToken },
     cache: 'no-store'
   });
-  return res.json();
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = res.status;
+    try { msg = JSON.parse(text).error.message; } catch (e) {}
+    throw new Error('データ取得に失敗: ' + msg);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('データの形式が不正です: ' + text.slice(0, 100));
+  }
 }
 
 async function driveListPermissions(fileId) {
