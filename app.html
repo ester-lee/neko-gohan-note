@@ -547,8 +547,9 @@ async function onPickerSelected(data) {
   document.getElementById('pickerPrompt').style.display = 'none';
   document.getElementById('loginLoading').style.display = 'block';
   try {
-    driveFileId = doc.id;
-    driveFileResourceKey = doc.resourceKey || null;
+    const resolved = await resolvePickedFile(doc.id, doc.resourceKey || null);
+    driveFileId = resolved.id;
+    driveFileResourceKey = resolved.resourceKey;
     state = await driveGetFileContent(driveFileId);
     const allowed = (state.members || []).map(e => e.toLowerCase());
     if (!allowed.includes(currentUserEmail.toLowerCase())) {
@@ -677,6 +678,23 @@ function driveHeaders(fileId, extra) {
     headers['X-Goog-Drive-Resource-Keys'] = fileId + '/' + driveFileResourceKey;
   }
   return headers;
+}
+
+async function resolvePickedFile(fileId, resourceKey) {
+  const headers = { Authorization: 'Bearer ' + accessToken };
+  if (resourceKey) headers['X-Goog-Drive-Resource-Keys'] = fileId + '/' + resourceKey;
+
+  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?fields=id,name,mimeType,shortcutDetails', { headers });
+  const json = await res.json();
+  if (!res.ok) throw new Error('ファイル情報の取得に失敗: ' + driveErrorMessage(json, res.status));
+
+  if (json.mimeType === 'application/vnd.google-apps.shortcut' && json.shortcutDetails) {
+    return {
+      id: json.shortcutDetails.targetId,
+      resourceKey: json.shortcutDetails.targetResourceKey || null
+    };
+  }
+  return { id: fileId, resourceKey: resourceKey };
 }
 
 async function driveGetFileContent(fileId) {
