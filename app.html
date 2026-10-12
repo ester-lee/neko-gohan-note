@@ -223,8 +223,8 @@
       <div class="login-loading" id="loginLoading">確認しています…</div>
       <div class="login-error" id="loginError"></div>
       <div id="pickerPrompt" style="display:none;">
-        <div class="sub-note" style="margin-top:16px;">共有されている「ねこごはんノート」フォルダを選んでください（初回のみ）</div>
-        <button class="big-btn" onclick="openPicker()">フォルダを選ぶ</button>
+        <div class="sub-note" style="margin-top:16px;">共有されている「ねこごはんノート」フォルダの中の「data.json」を選んでください（初回のみ）</div>
+        <button class="big-btn" onclick="openPicker()">ファイルを選ぶ</button>
       </div>
     </div>
   </div>
@@ -519,12 +519,12 @@ async function loadDataFileAndEnter() {
 =========================================================== */
 function openPicker() {
   if (!pickerApiLoaded) {
-    alert('フォルダ選択の準備中です。少し待ってからもう一度お試しください。');
+    alert('ファイル選択の準備中です。少し待ってからもう一度お試しください。');
     return;
   }
-  const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
     .setIncludeFolders(true)
-    .setSelectFolderEnabled(true)
+    .setSelectFolderEnabled(false)
     .setMode(google.picker.DocsViewMode.LIST);
 
   const picker = new google.picker.PickerBuilder()
@@ -539,15 +539,21 @@ function openPicker() {
 async function onPickerSelected(data) {
   if (data.action !== google.picker.Action.PICKED) return;
   const doc = data.docs[0];
-  if (doc.name !== FOLDER_NAME) {
-    alert('「' + FOLDER_NAME + '」という名前のフォルダを選んでください（選んだのは「' + doc.name + '」でした）');
+  if (doc.name !== 'data.json') {
+    alert('「ねこごはんノート」フォルダの中の「data.json」を選んでください（選んだのは「' + doc.name + '」でした）');
     return;
   }
-  driveFolderId = doc.id;
   document.getElementById('pickerPrompt').style.display = 'none';
   document.getElementById('loginLoading').style.display = 'block';
   try {
-    await loadDataFileAndEnter();
+    driveFileId = doc.id;
+    state = await driveGetFileContent(driveFileId);
+    const allowed = (state.members || []).map(e => e.toLowerCase());
+    if (!allowed.includes(currentUserEmail.toLowerCase())) {
+      showLoginError('このGoogleアカウントは、メンバーとして登録されていません。');
+      return;
+    }
+    showApp();
   } catch (e) {
     showLoginError('エラーが発生しました（詳細：' + (e && e.message ? e.message : e) + '）');
   }
