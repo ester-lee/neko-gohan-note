@@ -402,6 +402,7 @@ let currentUserEmail = null;
 let currentUserName = null;
 let driveFolderId = null;
 let driveFileId = null;
+let driveFileResourceKey = null;
 let pickerApiLoaded = false;
 
 gapi.load('picker', () => { pickerApiLoaded = true; });
@@ -547,6 +548,7 @@ async function onPickerSelected(data) {
   document.getElementById('loginLoading').style.display = 'block';
   try {
     driveFileId = doc.id;
+    driveFileResourceKey = doc.resourceKey || null;
     state = await driveGetFileContent(driveFileId);
     const allowed = (state.members || []).map(e => e.toLowerCase());
     if (!allowed.includes(currentUserEmail.toLowerCase())) {
@@ -656,16 +658,30 @@ async function driveCreateFile(name, parentId, contentObj) {
 }
 
 async function driveUpdateFile(fileId, contentObj) {
-  await fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
     method: 'PATCH',
-    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    headers: driveHeaders(fileId, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(contentObj)
   });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = res.status;
+    try { msg = JSON.parse(text).error.message; } catch (e) {}
+    throw new Error('保存に失敗: ' + msg);
+  }
+}
+
+function driveHeaders(fileId, extra) {
+  const headers = Object.assign({ Authorization: 'Bearer ' + accessToken }, extra || {});
+  if (driveFileResourceKey && fileId === driveFileId) {
+    headers['X-Goog-Drive-Resource-Keys'] = fileId + '/' + driveFileResourceKey;
+  }
+  return headers;
 }
 
 async function driveGetFileContent(fileId) {
   const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&_=' + Date.now(), {
-    headers: { Authorization: 'Bearer ' + accessToken },
+    headers: driveHeaders(fileId),
     cache: 'no-store'
   });
   const text = await res.text();
@@ -708,7 +724,7 @@ async function saveData() {
   try {
     await driveUpdateFile(driveFileId, state);
   } catch (e) {
-    alert('保存に失敗しました。インターネット接続を確認してください。');
+    alert('保存に失敗しました（詳細：' + (e && e.message ? e.message : e) + '）');
   }
 }
 
