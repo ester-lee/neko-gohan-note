@@ -664,8 +664,9 @@ async function driveUpdateFile(fileId, contentObj) {
 }
 
 async function driveGetFileContent(fileId) {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', {
-    headers: { Authorization: 'Bearer ' + accessToken }
+  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&_=' + Date.now(), {
+    headers: { Authorization: 'Bearer ' + accessToken },
+    cache: 'no-store'
   });
   return res.json();
 }
