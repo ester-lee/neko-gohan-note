@@ -357,6 +357,9 @@
           <input type="number" id="catWeight" class="field-input" placeholder="例：4.0" step="0.01">
           <label class="field-label">年齢</label>
           <input type="number" id="catAge" class="field-input" placeholder="例：3" step="1" min="0">
+          <label class="field-label">1日の摂取目安カロリー（kcal）</label>
+          <input type="number" id="catDailyKcal" class="field-input" placeholder="例：200" step="1" min="0">
+          <div class="sub-note">↑朝・おやつ・夜の合計で、この数字を目安に計算します</div>
           <button class="big-btn" onclick="saveCatInfo()">保存する</button>
         </div>
       </div>
@@ -381,8 +384,6 @@
           <div class="sub-note">↑調べた数値は、下の欄にご自身で入力してください（自動入力はされません）</div>
 
           <div id="foodMainField">
-            <label class="field-label">1日の給餌目安量（グラム）</label>
-            <input type="number" id="foodDailyGrams" class="field-input" placeholder="例：45" step="0.1">
             <label class="field-label">100gあたりのカロリー（kcal）</label>
             <input type="number" id="foodKcalPer100g" class="field-input" placeholder="例：350" step="0.1">
           </div>
@@ -445,8 +446,8 @@ let refreshTimer = null;
 function defaultData() {
   return {
     members: [],
-    cat: { name: '', weight: '', age: '' },
-    foods: [],      // {id, type:'main'|'wet'|'treat', name, dailyGrams, kcalPer100g, servingGrams, servingKcal, treatKcal}
+    cat: { name: '', weight: '', age: '', dailyKcal: '' },
+    foods: [],      // {id, type:'main'|'wet'|'treat', name, kcalPer100g, servingGrams, servingKcal, treatKcal}
     records: [],    // {id, date, time, foodId, foodName, foodType, grams, kcal, user}
     health: []      // {id, date, weight, memo}
   };
@@ -793,12 +794,14 @@ function renderCatInfo() {
   document.getElementById('catName').value = state.cat.name || '';
   document.getElementById('catWeight').value = state.cat.weight || '';
   document.getElementById('catAge').value = state.cat.age || '';
+  document.getElementById('catDailyKcal').value = state.cat.dailyKcal || '';
 }
 
 function saveCatInfo() {
   state.cat.name = document.getElementById('catName').value.trim();
   state.cat.weight = document.getElementById('catWeight').value;
   state.cat.age = document.getElementById('catAge').value;
+  state.cat.dailyKcal = document.getElementById('catDailyKcal').value;
   saveData();
   flashMsg('catSavedMsg');
   renderFoodSelect();
@@ -841,11 +844,8 @@ function addFood() {
 
   const food = { id: uid(), type, name };
   if (type === 'main') {
-    const g = parseFloat(document.getElementById('foodDailyGrams').value);
     const k = parseFloat(document.getElementById('foodKcalPer100g').value);
-    if (isNaN(g) || g <= 0) { alert('1日の給餌目安量を入力してください'); return; }
     if (isNaN(k) || k <= 0) { alert('100gあたりのカロリーを入力してください'); return; }
-    food.dailyGrams = g;
     food.kcalPer100g = k;
   } else if (type === 'wet') {
     const g = parseFloat(document.getElementById('foodWetGrams').value);
@@ -864,7 +864,6 @@ function addFood() {
   saveData();
 
   document.getElementById('foodName').value = '';
-  document.getElementById('foodDailyGrams').value = '';
   document.getElementById('foodKcalPer100g').value = '';
   document.getElementById('foodWetGrams').value = '';
   document.getElementById('foodWetKcal').value = '';
@@ -895,7 +894,7 @@ function renderFoodList() {
     div.className = 'list-item';
     let detail;
     if (f.type === 'main') {
-      detail = '主食 ／ 1日の目安：' + f.dailyGrams + ' g ／ 100gあたり ' + (f.kcalPer100g || '?') + ' kcal';
+      detail = '主食 ／ 100gあたり ' + (f.kcalPer100g || '?') + ' kcal';
     } else if (f.type === 'wet') {
       detail = 'ウェット ／ 1食：' + f.servingGrams + ' g ／ 1食あたり ' + f.servingKcal + ' kcal';
     } else {
@@ -1078,14 +1077,26 @@ function todayRecordsForFood(foodId) {
   return state.records.filter(r => r.date === t && r.foodId === foodId);
 }
 
+function todayTotalKcal() {
+  const t = todayStr();
+  return state.records
+    .filter(r => r.date === t)
+    .reduce((sum, r) => sum + (r.kcal || 0), 0);
+}
+
 function updateNextMealSuggestion() {
   const food = getSelectedFood();
   const box = document.getElementById('nextMealBox');
   if (!food) { box.textContent = 'フードを選ぶと、目安が表示されます'; return; }
 
   if (food.type === 'main') {
-    const given = todayRecordsForFood(food.id).reduce((sum, r) => sum + (r.grams || 0), 0);
-    const remain = Math.max(0, food.dailyGrams - given);
+    const dailyKcal = parseFloat(state.cat.dailyKcal);
+    if (!dailyKcal) {
+      box.textContent = '「猫の情報」タブで、1日の摂取目安カロリーを登録してください';
+      return;
+    }
+    const usedKcal = todayTotalKcal();
+    const remainKcal = Math.max(0, dailyKcal - usedKcal);
 
     const food2Sel = document.getElementById('inFood2').value;
     let kcal2 = 0;
@@ -1103,15 +1114,15 @@ function updateNextMealSuggestion() {
       }
     }
 
-    if (kcal2 > 0 && food.kcalPer100g) {
-      const equivalentGrams = kcal2 * 100 / food.kcalPer100g;
-      const adjusted = Math.max(0, remain - equivalentGrams);
-      box.innerHTML = 'フード2（' + food2Label + '）のぶんを差し引いて、<br>フード1「' + food.name + '」の目安：<br><b>' + remain.toFixed(1) + 'g → ' + adjusted.toFixed(1) + 'g</b>';
-      document.getElementById('inGrams').value = adjusted.toFixed(1);
+    const remainKcalAfterFood2 = Math.max(0, remainKcal - kcal2);
+    const gramsForFood1 = food.kcalPer100g ? remainKcalAfterFood2 * 100 / food.kcalPer100g : 0;
+
+    if (kcal2 > 0) {
+      box.innerHTML = '1日の残り' + remainKcal.toFixed(1) + 'kcalから、フード2（' + food2Label + '）のぶんを差し引いて、<br>フード1「' + food.name + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
     } else {
-      box.textContent = '次の「' + food.name + '」の目安：' + remain.toFixed(1) + ' g（本日の残り）';
-      document.getElementById('inGrams').value = remain.toFixed(1);
+      box.innerHTML = '1日の残り<b>' + remainKcal.toFixed(1) + 'kcal</b>から計算した、<br>フード1「' + food.name + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
     }
+    document.getElementById('inGrams').value = gramsForFood1.toFixed(1);
   } else {
     const givenKcal = todayRecordsForFood(food.id).reduce((sum, r) => sum + (r.kcal || 0), 0);
     box.textContent = '本日の「' + food.name + '」合計カロリー：' + givenKcal.toFixed(1) + ' kcal';
@@ -1261,8 +1272,7 @@ function renderGraph() {
   const hasData = totals.some(v => v > 0);
   document.getElementById('graphEmpty').style.display = hasData ? 'none' : 'block';
 
-  const mainFood = state.foods.find(f => f.type === 'main' && f.kcalPer100g);
-  const targetKcal = mainFood ? mainFood.dailyGrams * mainFood.kcalPer100g / 100 : null;
+  const targetKcal = parseFloat(state.cat.dailyKcal) || null;
 
   const max = Math.max(1, targetKcal || 0, ...totals);
   const padding = 24;
