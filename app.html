@@ -253,7 +253,7 @@
         <div class="save-ok" id="recordSavedMsg">記録しました！</div>
         <div class="card">
           <label class="field-label">時間帯</label>
-          <select id="inTime">
+          <select id="inTime" onchange="onTimeChange()">
             <option value="朝">朝</option>
             <option value="おやつ">おやつ</option>
             <option value="夜">夜</option>
@@ -937,7 +937,45 @@ function renderFoodSelect() {
 
   if (prevValue) sel.value = prevValue;
   renderFood2Select();
-  onFoodChange();
+  onTimeChange();
+}
+
+function findLastRecord(time, foodType) {
+  const matches = state.records.filter(r => r.time === time && r.foodType === foodType);
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => (a.date + a.id < b.date + b.id ? 1 : -1));
+  return matches[0];
+}
+
+function onTimeChange() {
+  const time = document.getElementById('inTime').value;
+  const foodSel = document.getElementById('inFood');
+  if (!foodSel.options.length) return;
+
+  if (time === '朝') {
+    const lastMain = findLastRecord('朝', 'main');
+    if (lastMain && state.foods.some(f => f.id === lastMain.foodId)) {
+      foodSel.value = lastMain.foodId;
+    }
+    onFoodChange();
+
+    const food = getSelectedFood();
+    if (food && food.type === 'main') {
+      const lastWet = findLastRecord('朝', 'wet');
+      const food2Sel = document.getElementById('inFood2');
+      if (lastWet && state.foods.some(f => f.id === lastWet.foodId)) {
+        food2Sel.value = lastWet.foodId;
+        onFood2Change();
+        document.getElementById('inGrams2').value = lastWet.grams;
+        updateNextMealSuggestion();
+      }
+    }
+  } else {
+    foodSel.selectedIndex = 0;
+    document.getElementById('inFood2').value = '';
+    onFoodChange();
+    onFood2Change();
+  }
 }
 
 function renderFood2Select() {
