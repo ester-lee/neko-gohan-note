@@ -275,6 +275,15 @@
                 <label class="field-label">フード2のグラム数</label>
                 <input type="number" id="inGrams2" class="field-input" placeholder="例：14" min="0" step="0.1" oninput="updateNextMealSuggestion()">
               </div>
+
+              <div id="food2OtherFields" style="display:none;">
+                <label class="field-label">フード2の名前</label>
+                <input type="text" id="inFood2OtherName" class="field-input" placeholder="例：お試しサンプル">
+                <label class="field-label">フード2のグラム数（任意）</label>
+                <input type="number" id="inFood2OtherGrams" class="field-input" placeholder="わかれば入力" min="0" step="0.1" oninput="updateNextMealSuggestion()">
+                <label class="field-label">フード2のカロリー（任意）</label>
+                <input type="number" id="inFood2OtherKcal" class="field-input" placeholder="わかれば入力" min="0" step="0.1" oninput="updateNextMealSuggestion()">
+              </div>
             </div>
           </div>
 
@@ -283,6 +292,15 @@
             <input type="number" id="inCount" class="field-input" placeholder="例：1" min="0" step="1" oninput="updateTreatKcal()">
             <label class="field-label">カロリー（自動計算）</label>
             <input type="text" id="inKcalShow" class="field-input" readonly>
+          </div>
+
+          <div id="otherFoodFields" style="display:none;">
+            <label class="field-label">フード1の名前</label>
+            <input type="text" id="inFoodOtherName" class="field-input" placeholder="例：お試しサンプル">
+            <label class="field-label">グラム数（任意）</label>
+            <input type="number" id="inFoodOtherGrams" class="field-input" placeholder="わかれば入力" min="0" step="0.1">
+            <label class="field-label">カロリー（任意）</label>
+            <input type="number" id="inFoodOtherKcal" class="field-input" placeholder="わかれば入力" min="0" step="0.1">
           </div>
         </div>
 
@@ -357,6 +375,10 @@
 
           <label class="field-label">フード名</label>
           <input type="text" id="foodName" class="field-input" placeholder="例：カルカン ビーフ">
+
+          <button type="button" class="ghost-btn" style="width:100%; margin-bottom:10px;" onclick="searchCalorieGoogle()">🔍 Googleでカロリーを検索する</button>
+          <button type="button" class="ghost-btn" style="width:100%; margin-bottom:10px;" onclick="searchCalorieGemini()">✨ 検索ワードをコピーする（Gemini用）</button>
+          <div class="sub-note">↑調べた数値は、下の欄にご自身で入力してください（自動入力はされません）</div>
 
           <div id="foodMainField">
             <label class="field-label">1日の給餌目安量（グラム）</label>
@@ -735,6 +757,26 @@ function saveCatInfo() {
 /* ===========================================================
    フード管理
 =========================================================== */
+function searchCalorieGoogle() {
+  const name = document.getElementById('foodName').value.trim();
+  if (!name) { alert('フード名を入力してください'); return; }
+  const url = 'https://www.google.com/search?q=' + encodeURIComponent(name + ' カロリー');
+  window.open(url, '_blank');
+}
+
+async function searchCalorieGemini() {
+  const name = document.getElementById('foodName').value.trim();
+  if (!name) { alert('フード名を入力してください'); return; }
+  const query = name + ' カロリー';
+  try {
+    await navigator.clipboard.writeText(query);
+    alert('検索ワードをコピーしました：\n「' + query + '」\n\nGeminiが開いたら、貼り付けて聞いてください。');
+  } catch (e) {
+    alert('コピーに失敗しました。手動でこちらを入力してください：\n「' + query + '」');
+  }
+  window.open('https://gemini.google.com/app', '_blank');
+}
+
 function onFoodTypeChange() {
   const type = document.getElementById('foodType').value;
   document.getElementById('foodMainField').style.display = (type === 'main') ? 'block' : 'none';
@@ -838,6 +880,11 @@ function renderFoodSelect() {
     opt.textContent = f.name + (f.type === 'main' ? '（主食）' : '（おやつ）');
     sel.appendChild(opt);
   });
+  const otherOpt1 = document.createElement('option');
+  otherOpt1.value = '__other__';
+  otherOpt1.textContent = '📝 その他（名前を入力）';
+  sel.appendChild(otherOpt1);
+
   if (prevValue) sel.value = prevValue;
   renderFood2Select();
   onFoodChange();
@@ -853,6 +900,11 @@ function renderFood2Select() {
     opt.textContent = f.name + '（ウェット）';
     sel.appendChild(opt);
   });
+  const otherOpt2 = document.createElement('option');
+  otherOpt2.value = '__other__';
+  otherOpt2.textContent = '📝 その他（名前を入力）';
+  sel.appendChild(otherOpt2);
+
   if (prevValue) sel.value = prevValue;
 }
 
@@ -867,10 +919,23 @@ function getSelectedFood2() {
 }
 
 function onFoodChange() {
-  const food = getSelectedFood();
+  const sel = document.getElementById('inFood').value;
   const mainFields = document.getElementById('mainFoodFields');
   const treatFields = document.getElementById('treatFields');
+  const otherFields = document.getElementById('otherFoodFields');
   const food2Block = document.getElementById('food2Block');
+  const box = document.getElementById('nextMealBox');
+
+  if (sel === '__other__') {
+    mainFields.style.display = 'none';
+    treatFields.style.display = 'none';
+    otherFields.style.display = 'block';
+    box.textContent = '名前を入力して記録してください';
+    return;
+  }
+  otherFields.style.display = 'none';
+
+  const food = getSelectedFood();
   if (!food) {
     mainFields.style.display = 'block';
     treatFields.style.display = 'none';
@@ -895,9 +960,20 @@ function onFoodChange() {
 }
 
 function onFood2Change() {
-  const food2 = getSelectedFood2();
-  document.getElementById('food2GramsBlock').style.display = food2 ? 'block' : 'none';
-  if (!food2) document.getElementById('inGrams2').value = '';
+  const sel = document.getElementById('inFood2').value;
+  const gramsBlock = document.getElementById('food2GramsBlock');
+  const otherBlock = document.getElementById('food2OtherFields');
+
+  if (sel === '__other__') {
+    gramsBlock.style.display = 'none';
+    otherBlock.style.display = 'block';
+    document.getElementById('inGrams2').value = '';
+  } else {
+    otherBlock.style.display = 'none';
+    const food2 = getSelectedFood2();
+    gramsBlock.style.display = food2 ? 'block' : 'none';
+    if (!food2) document.getElementById('inGrams2').value = '';
+  }
   updateNextMealSuggestion();
 }
 
@@ -923,14 +999,26 @@ function updateNextMealSuggestion() {
     const given = todayRecordsForFood(food.id).reduce((sum, r) => sum + (r.grams || 0), 0);
     const remain = Math.max(0, food.dailyGrams - given);
 
-    const food2 = getSelectedFood2();
-    const grams2 = parseFloat(document.getElementById('inGrams2').value) || 0;
+    const food2Sel = document.getElementById('inFood2').value;
+    let kcal2 = 0;
+    let food2Label = '';
+    if (food2Sel === '__other__') {
+      kcal2 = parseFloat(document.getElementById('inFood2OtherKcal').value) || 0;
+      const grams2 = document.getElementById('inFood2OtherGrams').value;
+      food2Label = (grams2 ? grams2 + 'g' : 'フード2');
+    } else {
+      const food2 = getSelectedFood2();
+      const grams2 = parseFloat(document.getElementById('inGrams2').value) || 0;
+      if (food2 && grams2 > 0) {
+        kcal2 = grams2 * (food2.servingKcal / food2.servingGrams);
+        food2Label = grams2 + 'g';
+      }
+    }
 
-    if (food2 && grams2 > 0 && food.kcalPer100g) {
-      const kcal2 = grams2 * (food2.servingKcal / food2.servingGrams);
+    if (kcal2 > 0 && food.kcalPer100g) {
       const equivalentGrams = kcal2 * 100 / food.kcalPer100g;
       const adjusted = Math.max(0, remain - equivalentGrams);
-      box.innerHTML = 'フード2（' + grams2 + 'g）のぶんを差し引いて、<br>フード1「' + food.name + '」の目安：<br><b>' + remain.toFixed(1) + 'g → ' + adjusted.toFixed(1) + 'g</b>';
+      box.innerHTML = 'フード2（' + food2Label + '）のぶんを差し引いて、<br>フード1「' + food.name + '」の目安：<br><b>' + remain.toFixed(1) + 'g → ' + adjusted.toFixed(1) + 'g</b>';
       document.getElementById('inGrams').value = adjusted.toFixed(1);
     } else {
       box.textContent = '次の「' + food.name + '」の目安：' + remain.toFixed(1) + ' g（本日の残り）';
@@ -943,28 +1031,49 @@ function updateNextMealSuggestion() {
 }
 
 function addRecord() {
-  const food = getSelectedFood();
-  if (!food) { alert('フードを選んでください'); return; }
+  const foodSel = document.getElementById('inFood').value;
+  if (!foodSel) { alert('フードを選んでください'); return; }
   const time = document.getElementById('inTime').value;
   const date = todayStr();
 
-  if (food.type === 'main') {
-    const g = parseFloat(document.getElementById('inGrams').value);
-    if (isNaN(g) || g <= 0) { alert('フード1のグラム数を入力してください'); return; }
-    const kcal1 = food.kcalPer100g ? g * food.kcalPer100g / 100 : 0;
-    state.records.push({ id: uid(), date, time, foodId: food.id, foodName: food.name, foodType: food.type, grams: g, kcal: kcal1, user: currentUserName });
-
-    const food2 = getSelectedFood2();
-    const grams2 = parseFloat(document.getElementById('inGrams2').value) || 0;
-    if (food2 && grams2 > 0) {
-      const kcal2 = grams2 * (food2.servingKcal / food2.servingGrams);
-      state.records.push({ id: uid(), date, time, foodId: food2.id, foodName: food2.name, foodType: food2.type, grams: grams2, kcal: kcal2, user: currentUserName });
-    }
+  if (foodSel === '__other__') {
+    const name = document.getElementById('inFoodOtherName').value.trim();
+    if (!name) { alert('フード1の名前を入力してください'); return; }
+    const g = parseFloat(document.getElementById('inFoodOtherGrams').value) || 0;
+    const k = parseFloat(document.getElementById('inFoodOtherKcal').value) || 0;
+    state.records.push({ id: uid(), date, time, foodId: null, foodName: name, foodType: 'other', grams: g, kcal: k, user: currentUserName });
   } else {
-    const c = parseFloat(document.getElementById('inCount').value);
-    if (isNaN(c) || c <= 0) { alert('個数を入力してください'); return; }
-    const kcal = c * food.treatKcal;
-    state.records.push({ id: uid(), date, time, foodId: food.id, foodName: food.name, foodType: food.type, grams: 0, kcal, user: currentUserName });
+    const food = getSelectedFood();
+    if (!food) { alert('フードを選んでください'); return; }
+
+    if (food.type === 'main') {
+      const g = parseFloat(document.getElementById('inGrams').value);
+      if (isNaN(g) || g <= 0) { alert('フード1のグラム数を入力してください'); return; }
+      const kcal1 = food.kcalPer100g ? g * food.kcalPer100g / 100 : 0;
+      state.records.push({ id: uid(), date, time, foodId: food.id, foodName: food.name, foodType: food.type, grams: g, kcal: kcal1, user: currentUserName });
+
+      const food2Sel = document.getElementById('inFood2').value;
+      if (food2Sel === '__other__') {
+        const name2 = document.getElementById('inFood2OtherName').value.trim();
+        if (name2) {
+          const g2 = parseFloat(document.getElementById('inFood2OtherGrams').value) || 0;
+          const k2 = parseFloat(document.getElementById('inFood2OtherKcal').value) || 0;
+          state.records.push({ id: uid(), date, time, foodId: null, foodName: name2, foodType: 'other', grams: g2, kcal: k2, user: currentUserName });
+        }
+      } else if (food2Sel) {
+        const food2 = getSelectedFood2();
+        const grams2 = parseFloat(document.getElementById('inGrams2').value) || 0;
+        if (food2 && grams2 > 0) {
+          const kcal2 = grams2 * (food2.servingKcal / food2.servingGrams);
+          state.records.push({ id: uid(), date, time, foodId: food2.id, foodName: food2.name, foodType: food2.type, grams: grams2, kcal: kcal2, user: currentUserName });
+        }
+      }
+    } else {
+      const c = parseFloat(document.getElementById('inCount').value);
+      if (isNaN(c) || c <= 0) { alert('個数を入力してください'); return; }
+      const kcal = c * food.treatKcal;
+      state.records.push({ id: uid(), date, time, foodId: food.id, foodName: food.name, foodType: food.type, grams: 0, kcal, user: currentUserName });
+    }
   }
 
   saveData();
@@ -973,8 +1082,15 @@ function addRecord() {
   document.getElementById('inGrams2').value = '';
   document.getElementById('inFood2').value = '';
   document.getElementById('food2GramsBlock').style.display = 'none';
+  document.getElementById('food2OtherFields').style.display = 'none';
+  document.getElementById('inFood2OtherName').value = '';
+  document.getElementById('inFood2OtherGrams').value = '';
+  document.getElementById('inFood2OtherKcal').value = '';
   document.getElementById('inCount').value = '';
   document.getElementById('inKcalShow').value = '';
+  document.getElementById('inFoodOtherName').value = '';
+  document.getElementById('inFoodOtherGrams').value = '';
+  document.getElementById('inFoodOtherKcal').value = '';
 
   flashMsg('recordSavedMsg');
   updateNextMealSuggestion();
