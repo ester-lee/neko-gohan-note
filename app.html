@@ -439,6 +439,8 @@ let currentUserEmail = null;
 let currentUserName = null;
 let driveFolderId = null;
 let driveFileId = null;
+let tokenMode = 'login'; // 'login' | 'silent-init' | 'refresh'
+let refreshTimer = null;
 
 function defaultData() {
   return {
@@ -470,10 +472,30 @@ window.addEventListener('load', () => {
     scope: DRIVE_SCOPE,
     callback: onTokenReceived
   });
+  attemptSilentLogin();
 });
+
+function attemptSilentLogin() {
+  tokenMode = 'silent-init';
+  document.getElementById('googleLoginBtn').style.display = 'none';
+  document.getElementById('loginLoading').style.display = 'block';
+  setTimeout(() => {
+    if (!accessToken) {
+      document.getElementById('loginLoading').style.display = 'none';
+      document.getElementById('googleLoginBtn').style.display = 'block';
+    }
+  }, 4000);
+  try {
+    tokenClient.requestAccessToken({ prompt: '' });
+  } catch (e) {
+    document.getElementById('loginLoading').style.display = 'none';
+    document.getElementById('googleLoginBtn').style.display = 'block';
+  }
+}
 
 function startLogin() {
   hideLoginError();
+  tokenMode = 'login';
   tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
@@ -490,12 +512,38 @@ function showLoginError(msg) {
   accessToken = null;
 }
 
+function startTokenRefreshTimer() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    tokenMode = 'refresh';
+    tokenClient.requestAccessToken({ prompt: '' });
+  }, 50 * 60 * 1000);
+}
+
+function stopTokenRefreshTimer() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+
 async function onTokenReceived(resp) {
   if (resp.error) {
+    if (tokenMode === 'silent-init') {
+      document.getElementById('loginLoading').style.display = 'none';
+      document.getElementById('googleLoginBtn').style.display = 'block';
+      return;
+    }
+    if (tokenMode === 'refresh') {
+      return;
+    }
     showLoginError('ログインに失敗しました。もう一度お試しください。');
     return;
   }
+
   accessToken = resp.access_token;
+
+  if (tokenMode === 'refresh') {
+    return;
+  }
+
   document.getElementById('googleLoginBtn').style.display = 'none';
   document.getElementById('loginLoading').style.display = 'block';
   try {
@@ -545,6 +593,7 @@ async function afterSignIn() {
 }
 
 function logout() {
+  stopTokenRefreshTimer();
   if (accessToken) {
     google.accounts.oauth2.revoke(accessToken, () => {});
   }
@@ -568,6 +617,7 @@ function showApp() {
   document.getElementById('currentUserLabel').textContent = currentUserName;
   initAppScreens();
   showTab('record');
+  startTokenRefreshTimer();
 }
 
 /* ===========================================================
