@@ -194,6 +194,37 @@
 
   .empty-msg { color: #a9892f; font-size: 14px; padding: 10px 0; }
 
+  .history-card {
+    background: #fff;
+    border: 2px dashed #1f8a53;
+    border-radius: 16px;
+    padding: 14px;
+    margin-top: 10px;
+    margin-bottom: 16px;
+  }
+  .history-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #1f8a53; }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 4px;
+    border-bottom: 1px solid #f0e4c8;
+    font-size: 14px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item .info .date { font-size: 12px; color: #8a6d2f; }
+  .pick-btn {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: none;
+    background: #ffcc00;
+    color: #4a3b2a;
+    margin-left: 10px;
+  }
+
   canvas { width: 100%; height: 220px; background: #fff; border-radius: 12px; border: 2px dashed #ffc53d; }
 
   .save-ok {
@@ -236,7 +267,7 @@
       </div>
       <div class="tabs">
         <button class="tab-btn" data-tab="record" onclick="showTab('record')">記録入力</button>
-        <button class="tab-btn" data-tab="list" onclick="showTab('list')">一覧</button>
+        <button class="tab-btn" data-tab="list" onclick="showTab('list')">給餌履歴</button>
         <button class="tab-btn" data-tab="graph" onclick="showTab('graph')">グラフ</button>
         <button class="tab-btn" data-tab="health" onclick="showTab('health')">体調メモ</button>
         <button class="tab-btn" data-tab="cat" onclick="showTab('cat')">猫の情報</button>
@@ -252,13 +283,15 @@
         <div class="title">ご飯を記録する</div>
         <div class="save-ok" id="recordSavedMsg">記録しました！</div>
         <div class="card">
+          <label class="field-label">日付（記録を忘れた時だけ変更してください）</label>
+          <input type="date" id="inDate" class="field-input" onchange="onTimeChange()">
+
           <label class="field-label">時間帯</label>
           <select id="inTime" onchange="onTimeChange()">
             <option value="朝">朝</option>
             <option value="おやつ">おやつ</option>
             <option value="夜">夜</option>
           </select>
-          <div id="debugAutoSelect" style="font-size:11px;color:#999;margin-top:2px;"></div>
 
           <label class="field-label">フード1（主食 または おやつ）</label>
           <select id="inFood" onchange="onFoodChange()"></select>
@@ -308,11 +341,16 @@
         <div class="result-box" id="nextMealBox">フードを選ぶと、目安が表示されます</div>
 
         <button class="big-btn" onclick="addRecord()">記録する にゃ！</button>
+
+        <div class="history-card">
+          <div class="history-title">過去1週間の履歴から選ぶ</div>
+          <div id="weekHistoryList"></div>
+        </div>
       </div>
 
-      <!-- 一覧 -->
+      <!-- 給餌履歴 -->
       <div class="screen" id="screen-list">
-        <div class="title">記録の一覧</div>
+        <div class="title">給餌履歴</div>
         <label class="field-label">表示する期間</label>
         <select id="listRange" onchange="renderList()">
           <option value="today">今日</option>
@@ -793,6 +831,9 @@ async function showTab(name) {
 }
 
 function initAppScreens() {
+  const inDate = document.getElementById('inDate');
+  inDate.value = todayStr();
+  inDate.max = todayStr();
   renderFoodSelect();
   document.getElementById('healthDate').value = todayStr();
 }
@@ -947,6 +988,95 @@ function renderFoodSelect() {
   if (prevValue) sel.value = prevValue;
   renderFood2Select();
   onTimeChange();
+  renderWeekHistory();
+}
+
+function renderWeekHistory() {
+  const area = document.getElementById('weekHistoryList');
+  if (!area) return;
+
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 6);
+  const cutoffStr = cutoff.getFullYear() + '-' + String(cutoff.getMonth() + 1).padStart(2, '0') + '-' + String(cutoff.getDate()).padStart(2, '0');
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+
+  const list = state.records
+    .filter(r => r.date >= cutoffStr)
+    .slice()
+    .sort((a, b) => (a.date + a.id < b.date + b.id ? 1 : -1));
+
+  area.innerHTML = '';
+  if (list.length === 0) {
+    area.innerHTML = '<div class="empty-msg">過去1週間の記録はありません</div>';
+    return;
+  }
+
+  list.forEach(r => {
+    const d = new Date(r.date + 'T00:00:00');
+    const label = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdays[d.getDay()] + '）' + r.time;
+    const amount = (r.foodType !== 'treat' && r.grams) ? r.grams + 'g' : '';
+
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = '<div class="info"><div class="date">' + label + '</div>' + escapeHtml(r.foodName) + (amount ? '　' + amount : '') + '</div>';
+
+    const btn = document.createElement('button');
+    btn.className = 'pick-btn';
+    btn.textContent = '選ぶ';
+    btn.onclick = () => pickHistoryRecord(r.id);
+    div.appendChild(btn);
+    area.appendChild(div);
+  });
+}
+
+function pickHistoryRecord(id) {
+  const r = state.records.find(x => x.id === id);
+  if (!r) return;
+
+  document.getElementById('inTime').value = r.time;
+
+  if (r.foodType === 'wet') {
+    const mainFood = getSelectedFood();
+    if (!mainFood || mainFood.type !== 'main') {
+      alert('先にフード1（主食）を選んでから、ウェットの履歴を選んでください');
+      return;
+    }
+    if (!state.foods.some(f => f.id === r.foodId)) {
+      alert('このフードは削除されています');
+      return;
+    }
+    document.getElementById('inFood2').value = r.foodId;
+    onFood2Change();
+    document.getElementById('inGrams2').value = r.grams;
+    updateNextMealSuggestion();
+    return;
+  }
+
+  const foodSel = document.getElementById('inFood');
+
+  if (r.foodType === 'other') {
+    foodSel.value = '__other__';
+    onFoodChange();
+    document.getElementById('inFoodOtherName').value = r.foodName;
+    document.getElementById('inFoodOtherGrams').value = r.grams || '';
+    document.getElementById('inFoodOtherKcal').value = r.kcal || '';
+    return;
+  }
+
+  const food = state.foods.find(f => f.id === r.foodId);
+  if (!food) { alert('このフードは削除されています'); return; }
+
+  foodSel.value = r.foodId;
+  onFoodChange();
+
+  if (r.foodType === 'main') {
+    document.getElementById('inGrams').value = r.grams;
+  } else if (r.foodType === 'treat') {
+    const count = food.treatKcal ? Math.round((r.kcal / food.treatKcal) * 10) / 10 : '';
+    document.getElementById('inCount').value = count;
+    updateTreatKcal();
+  }
 }
 
 function findLastRecord(time, foodType) {
@@ -959,17 +1089,13 @@ function findLastRecord(time, foodType) {
 function onTimeChange() {
   const time = document.getElementById('inTime').value;
   const foodSel = document.getElementById('inFood');
-  const dbg = document.getElementById('debugAutoSelect');
-  const now = new Date().toLocaleTimeString('ja-JP');
+  const selectedDate = document.getElementById('inDate').value || todayStr();
   if (!foodSel.options.length) return;
 
-  if (time === '朝') {
+  if (time === '朝' && selectedDate === todayStr()) {
     const lastMain = findLastRecord('朝', 'main');
     if (lastMain && state.foods.some(f => f.id === lastMain.foodId)) {
       foodSel.value = lastMain.foodId;
-      if (dbg) dbg.textContent = '[診断 ' + now + '] 前回フード見つかりました：' + lastMain.foodName + '（' + lastMain.date + '）';
-    } else {
-      if (dbg) dbg.textContent = '[診断 ' + now + '] 前回フードが見つかりませんでした（records件数：' + state.records.length + '）';
     }
     onFoodChange();
 
@@ -992,7 +1118,6 @@ function onTimeChange() {
     document.getElementById('inFood2').value = '';
     onFoodChange();
     onFood2Change();
-    if (dbg) dbg.textContent = '';
   }
 }
 
@@ -1092,12 +1217,12 @@ function updateTreatKcal() {
 }
 
 function todayRecordsForFood(foodId) {
-  const t = todayStr();
+  const t = document.getElementById('inDate').value || todayStr();
   return state.records.filter(r => r.date === t && r.foodId === foodId);
 }
 
 function todayTotalKcal() {
-  const t = todayStr();
+  const t = document.getElementById('inDate').value || todayStr();
   return state.records
     .filter(r => r.date === t)
     .reduce((sum, r) => sum + (r.kcal || 0), 0);
@@ -1152,7 +1277,7 @@ function addRecord() {
   const foodSel = document.getElementById('inFood').value;
   if (!foodSel) { alert('フードを選んでください'); return; }
   const time = document.getElementById('inTime').value;
-  const date = todayStr();
+  const date = document.getElementById('inDate').value || todayStr();
 
   if (foodSel === '__other__') {
     const name = document.getElementById('inFoodOtherName').value.trim();
@@ -1210,8 +1335,11 @@ function addRecord() {
   document.getElementById('inFoodOtherGrams').value = '';
   document.getElementById('inFoodOtherKcal').value = '';
 
+  document.getElementById('inDate').value = todayStr();
+
   flashMsg('recordSavedMsg');
   updateNextMealSuggestion();
+  renderWeekHistory();
 }
 
 /* ===========================================================
