@@ -975,6 +975,9 @@ function onTimeChange() {
 
     const food = getSelectedFood();
     if (food && food.type === 'main') {
+      if (lastMain && lastMain.foodId === food.id) {
+        document.getElementById('inGrams').value = lastMain.grams;
+      }
       const lastWet = findLastRecord('朝', 'wet');
       const food2Sel = document.getElementById('inFood2');
       if (lastWet && state.foods.some(f => f.id === lastWet.foodId)) {
