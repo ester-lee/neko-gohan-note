@@ -353,9 +353,9 @@
         <div class="title">給餌履歴</div>
         <label class="field-label">表示する期間</label>
         <select id="listRange" onchange="renderList()">
-          <option value="today">今日</option>
           <option value="week">過去7日</option>
-          <option value="all">すべて（過去半年分）</option>
+          <option value="month">過去1か月</option>
+          <option value="all">過去すべて</option>
         </select>
         <div id="listArea"></div>
       </div>
@@ -366,6 +366,11 @@
         <div class="sub-note">直近14日間の、合計カロリー（kcal）です。緑の点線は1日の目安カロリーです</div>
         <canvas id="graphCanvas" width="440" height="220"></canvas>
         <div id="graphEmpty" class="empty-msg" style="display:none;">まだ記録がありません</div>
+
+        <div class="title" style="font-size:18px; margin-top:24px;">体重のグラフ</div>
+        <div class="sub-note">体調メモに記録した体重（kg）の推移です</div>
+        <canvas id="weightGraphCanvas" width="440" height="220"></canvas>
+        <div id="weightGraphEmpty" class="empty-msg" style="display:none;">まだ体重の記録がありません</div>
       </div>
 
       <!-- 体調メモ -->
@@ -822,7 +827,7 @@ async function showTab(name) {
   await refreshFromDrive();
 
   if (name === 'list') renderList();
-  if (name === 'graph') renderGraph();
+  if (name === 'graph') { renderGraph(); renderWeightGraph(); }
   if (name === 'health') renderHealthList();
   if (name === 'cat') renderCatInfo();
   if (name === 'food') renderFoodList();
@@ -1352,15 +1357,16 @@ function renderList() {
 
   let records = [...state.records].sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
 
-  if (range === 'today') {
-    const t = todayStr();
-    records = records.filter(r => r.date === t);
-  } else if (range === 'week') {
+  if (range === 'week') {
     const limit = new Date();
     limit.setDate(limit.getDate() - 7);
     records = records.filter(r => new Date(r.date) >= limit);
+  } else if (range === 'month') {
+    const limit = new Date();
+    limit.setMonth(limit.getMonth() - 1);
+    records = records.filter(r => new Date(r.date) >= limit);
   }
-  // 'all' はそのまま（過去半年分も含め、すべての記録を保持しています）
+  // 'all' はそのまま（保持しているすべての記録）
 
   if (records.length === 0) {
     area.innerHTML = '<div class="empty-msg">記録がありません</div>';
@@ -1466,6 +1472,73 @@ function renderGraph() {
     ctx.textAlign = 'right';
     ctx.fillText('目安：' + targetKcal.toFixed(0) + 'kcal', w - padding, ty - 4);
   }
+}
+
+function renderWeightGraph() {
+  const canvas = document.getElementById('weightGraphCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const points = state.health
+    .filter(h => h.weight !== '' && h.weight !== null && h.weight !== undefined && !isNaN(parseFloat(h.weight)))
+    .map(h => ({ date: h.date, weight: parseFloat(h.weight) }))
+    .sort((a, b) => (a.date > b.date ? 1 : -1));
+
+  const hasData = points.length > 0;
+  document.getElementById('weightGraphEmpty').style.display = hasData ? 'none' : 'block';
+  if (!hasData) return;
+
+  const weights = points.map(p => p.weight);
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = Math.max(0.1, maxW - minW);
+  const padTop = maxW + range * 0.15;
+  const padBottom = Math.max(0, minW - range * 0.15);
+
+  const padding = 28;
+  const w = canvas.width;
+  const h = canvas.height;
+  const plotW = w - padding * 2;
+  const plotH = h - padding * 2;
+
+  const x = i => padding + (points.length === 1 ? plotW / 2 : (plotW * i) / (points.length - 1));
+  const y = v => padding + plotH - ((v - padBottom) / (padTop - padBottom)) * plotH;
+
+  ctx.strokeStyle = '#1f8a53';
+  ctx.beginPath();
+  ctx.moveTo(padding, h - padding);
+  ctx.lineTo(w - padding, h - padding);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#ff6f3c';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const px = x(i);
+    const py = y(p.weight);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = '#ff6f3c';
+  points.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(x(i), y(p.weight), 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#8a6d2f';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  points.forEach((p, i) => {
+    if (i === 0 || i === points.length - 1 || i % 3 === 0) {
+      ctx.fillText(p.date.slice(5), x(i), h - padding + 12);
+    }
+  });
+
+  ctx.textAlign = 'left';
+  ctx.fillText(maxW.toFixed(1) + 'kg', padding, y(maxW) - 4);
+  ctx.fillText(minW.toFixed(1) + 'kg', padding, y(minW) + 12);
 }
 
 /* ===========================================================
