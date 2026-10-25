@@ -258,6 +258,7 @@
             <option value="おやつ">おやつ</option>
             <option value="夜">夜</option>
           </select>
+          <div id="debugAutoSelect" style="font-size:11px;color:#999;margin-top:2px;"></div>
 
           <label class="field-label">フード1（主食 または おやつ）</label>
           <select id="inFood" onchange="onFoodChange()"></select>
@@ -621,6 +622,12 @@ function showApp() {
   startTokenRefreshTimer();
 }
 
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.getElementById('appScreen').style.display === 'block') {
+    showTab(currentTabName);
+  }
+});
+
 /* ===========================================================
    Googleドライブとの通信
 =========================================================== */
@@ -765,7 +772,10 @@ async function refreshFromDrive() {
 /* ===========================================================
    タブ切り替え
 =========================================================== */
+let currentTabName = 'record';
+
 async function showTab(name) {
+  currentTabName = name;
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('current'));
@@ -949,12 +959,17 @@ function findLastRecord(time, foodType) {
 function onTimeChange() {
   const time = document.getElementById('inTime').value;
   const foodSel = document.getElementById('inFood');
+  const dbg = document.getElementById('debugAutoSelect');
+  const now = new Date().toLocaleTimeString('ja-JP');
   if (!foodSel.options.length) return;
 
   if (time === '朝') {
     const lastMain = findLastRecord('朝', 'main');
     if (lastMain && state.foods.some(f => f.id === lastMain.foodId)) {
       foodSel.value = lastMain.foodId;
+      if (dbg) dbg.textContent = '[診断 ' + now + '] 前回フード見つかりました：' + lastMain.foodName + '（' + lastMain.date + '）';
+    } else {
+      if (dbg) dbg.textContent = '[診断 ' + now + '] 前回フードが見つかりませんでした（records件数：' + state.records.length + '）';
     }
     onFoodChange();
 
@@ -974,6 +989,7 @@ function onTimeChange() {
     document.getElementById('inFood2').value = '';
     onFoodChange();
     onFood2Change();
+    if (dbg) dbg.textContent = '';
   }
 }
 
