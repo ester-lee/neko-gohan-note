@@ -1017,30 +1017,40 @@ function renderWeekHistory() {
     return;
   }
 
-  list.forEach(r => {
-    const d = new Date(r.date + 'T00:00:00');
-    const label = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdays[d.getDay()] + '）' + r.time;
-    const amount = (r.foodType !== 'treat' && r.grams) ? r.grams + 'g' : '';
+  groupRecords(list).forEach(group => {
+    const first = group[0];
+    const d = new Date(first.date + 'T00:00:00');
+    const label = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdays[d.getDay()] + '）' + first.time;
+    const foodLines = group.map(r => {
+      const amount = (r.foodType !== 'treat' && r.grams) ? r.grams + 'g' : '';
+      return '<div class="foodline">' + escapeHtml(r.foodName) + (amount ? '　' + amount : '') + '</div>';
+    }).join('');
 
     const div = document.createElement('div');
     div.className = 'history-item';
-    div.innerHTML = '<div class="info"><div class="date">' + label + '</div>' + escapeHtml(r.foodName) + (amount ? '　' + amount : '') + '</div>';
+    div.innerHTML = '<div class="info"><div class="date">' + label + '</div>' + foodLines + '</div>';
 
     const btn = document.createElement('button');
     btn.className = 'pick-btn';
     btn.textContent = '選ぶ';
-    btn.onclick = () => pickHistoryRecord(r.id);
+    btn.onclick = () => pickHistoryGroup(group.map(r => r.id));
     div.appendChild(btn);
     area.appendChild(div);
   });
 }
 
-function pickHistoryRecord(id) {
-  const r = state.records.find(x => x.id === id);
-  if (!r) return;
+function pickHistoryGroup(ids) {
+  const records = ids.map(id => state.records.find(r => r.id === id)).filter(Boolean);
+  if (records.length === 0) return;
 
-  document.getElementById('inTime').value = r.time;
+  document.getElementById('inTime').value = records[0].time;
 
+  // ウェット（フード2）は、主食が選ばれた後に反映する必要があるため最後に処理する
+  const ordered = records.filter(r => r.foodType !== 'wet').concat(records.filter(r => r.foodType === 'wet'));
+  ordered.forEach(r => applyHistoryRecord(r));
+}
+
+function applyHistoryRecord(r) {
   if (r.foodType === 'wet') {
     const mainFood = getSelectedFood();
     if (!mainFood || mainFood.type !== 'main') {
@@ -1373,29 +1383,44 @@ function renderList() {
     return;
   }
 
-  records.forEach(r => {
+  groupRecords(records).forEach(group => {
+    const first = group[0];
     const div = document.createElement('div');
     div.className = 'list-item';
-    const amount = (r.foodType === 'treat')
-      ? r.kcal.toFixed(1) + ' kcal'
-      : r.grams + ' g（' + r.kcal.toFixed(1) + ' kcal）';
+    const foodLines = group.map(r => {
+      const amount = (r.foodType === 'treat')
+        ? r.kcal.toFixed(1) + ' kcal'
+        : r.grams + ' g（' + r.kcal.toFixed(1) + ' kcal）';
+      return '<div class="foodline">' + escapeHtml(r.foodName) + '　' + amount + '</div>';
+    }).join('');
     div.innerHTML =
       '<div class="info">' +
-      '<div class="name">' + r.date + '　' + r.time + '</div>' +
-      '<div>' + escapeHtml(r.foodName) + '　' + amount + '　（記録：' + escapeHtml(r.user || '') + '）</div>' +
+      '<div class="name">' + first.date + '　' + first.time + '　（記録：' + escapeHtml(first.user || '') + '）</div>' +
+      foodLines +
       '</div>';
     const delBtn = document.createElement('button');
     delBtn.className = 'danger-btn';
     delBtn.textContent = '削除';
-    delBtn.onclick = () => deleteRecord(r.id);
+    delBtn.onclick = () => deleteRecordGroup(group.map(r => r.id));
     div.appendChild(delBtn);
     area.appendChild(div);
   });
 }
 
-function deleteRecord(id) {
-  if (!confirm('この記録を削除しますか？')) return;
-  state.records = state.records.filter(r => r.id !== id);
+function groupRecords(records) {
+  const groups = {};
+  const order = [];
+  records.forEach(r => {
+    const key = r.date + '|' + r.time + '|' + (r.user || '');
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(r);
+  });
+  return order.map(key => groups[key]);
+}
+
+function deleteRecordGroup(ids) {
+  if (!confirm('この記録をまとめて削除しますか？')) return;
+  state.records = state.records.filter(r => !ids.includes(r.id));
   saveData();
   renderList();
 }
