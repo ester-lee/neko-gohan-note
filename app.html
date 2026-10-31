@@ -1048,6 +1048,12 @@ function pickHistoryGroup(ids) {
   // ウェット（フード2）は、主食が選ばれた後に反映する必要があるため最後に処理する
   const ordered = records.filter(r => r.foodType !== 'wet').concat(records.filter(r => r.foodType === 'wet'));
   ordered.forEach(r => applyHistoryRecord(r));
+
+  // ウェットの反映時に目安計算が走り、フード1のグラム数が上書きされるため、最後に履歴の値へ戻す
+  const mainRecord = records.find(r => r.foodType === 'main');
+  if (mainRecord) {
+    document.getElementById('inGrams').value = mainRecord.grams;
+  }
 }
 
 function applyHistoryRecord(r) {
