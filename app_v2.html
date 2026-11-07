@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ねこごはんノート</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    background: #eee;
+    color: #4a3b2a;
+  }
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: #fff6e8;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  }
+  h1 { font-size: 22px; margin: 0; }
+
+  /* ===== ヘッダー・タブ ===== */
+  header {
+    background: #ffd966;
+    padding: 16px 16px 0;
+    border-bottom: 2px solid #ffc53d;
+  }
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .user-badge { font-size: 14px; color: #6b5420; }
+  .logout-btn {
+    font-size: 13px;
+    background: none;
+    border: 1px solid #a9892f;
+    border-radius: 8px;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: #6b5420;
+  }
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 2px;
+  }
+  .tab-btn {
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: bold;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #8a6d2f;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  .tab-btn.current {
+    color: #ff6f3c;
+    border-bottom: 3px solid #ff6f3c;
+    background: #fff2d6;
+  }
+
+  .content { padding: 20px; padding-bottom: 60px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .title { font-size: 22px; font-weight: bold; margin-bottom: 16px; }
+  .card {
+    background: #ffffff;
+    border: 2px dashed #ffc53d;
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .field-label { font-size: 15px; margin-bottom: 6px; display: block; font-weight: bold; }
+  .field-input, select, textarea {
+    width: 100%;
+    font-size: 18px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 2px solid #ffc53d;
+    margin-bottom: 14px;
+    background: #fffaf0;
+    font-family: inherit;
+    color: #4a3b2a;
+  }
+  .big-btn {
+    width: 100%;
+    font-size: 19px;
+    font-weight: bold;
+    padding: 15px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    background: #ff6f3c;
+    color: #fff;
+  }
+  .big-btn:active { opacity: 0.85; }
+  .big-btn:disabled { opacity: 0.5; cursor: default; }
+  .small-btn {
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: #ff6f3c;
+    color: #fff;
+    font-weight: bold;
+  }
+  .ghost-btn {
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 2px solid #ff6f3c;
+    cursor: pointer;
+    background: #fff;
+    color: #ff6f3c;
+    font-weight: bold;
+  }
+  .danger-btn {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background: #ffe3e3;
+    color: #c0392b;
+  }
+  .result-box {
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    padding: 18px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+    background: #d7f5e3;
+    color: #1f8a53;
+  }
+  .sub-note { font-size: 13px; color: #8a6d2f; margin-top: -6px; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #ffe0a3; }
+  th { color: #8a6d2f; }
+
+  .list-item {
+    background: #fff;
+    border: 2px dashed #ffc53d;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .list-item .info { font-size: 14px; line-height: 1.5; }
+  .list-item .name { font-weight: bold; font-size: 16px; }
+
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+  .login-wrap h1 { font-size: 26px; margin-bottom: 8px; }
+  .login-wrap p { color: #8a6d2f; margin-bottom: 24px; }
+  .login-box { width: 100%; max-width: 320px; }
+  .login-error {
+    display: none;
+    background: #ffe3e3;
+    color: #c0392b;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 10px;
+    margin-top: 16px;
+    text-align: left;
+  }
+  .login-loading {
+    display: none;
+    color: #8a6d2f;
+    font-size: 14px;
+    margin-top: 16px;
+  }
+
+  .empty-msg { color: #a9892f; font-size: 14px; padding: 10px 0; }
+
+  .history-card {
+    background: #fff;
+    border: 2px dashed #1f8a53;
+    border-radius: 16px;
+    padding: 14px;
+    margin-top: 10px;
+    margin-bottom: 16px;
+  }
+  .history-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #1f8a53; }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 4px;
+    border-bottom: 1px solid #f0e4c8;
+    font-size: 14px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item .info .date { font-size: 12px; color: #8a6d2f; }
+  .pick-btn {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: none;
+    background: #ffcc00;
+    color: #4a3b2a;
+    margin-left: 10px;
+  }
+
+  canvas { width: 100%; height: 220px; background: #fff; border-radius: 12px; border: 2px dashed #ffc53d; }
+
+  .save-ok {
+    display: none;
+    background: #d7f5e3;
+    color: #1f8a53;
+    font-size: 14px;
+    text-align: center;
+    padding: 8px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ===== ログイン画面 ===== -->
+  <div id="loginScreen" class="login-wrap">
+    <h1>🐾 ねこごはんノート</h1>
+    <p>Googleアカウントでログインしてください</p>
+    <div class="login-box">
+      <button class="big-btn" id="googleLoginBtn" onclick="startLogin()">Googleでログイン</button>
+      <div class="login-loading" id="loginLoading">確認しています…</div>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- ===== アプリ本体 ===== -->
+  <div id="appScreen" style="display:none;">
+    <header>
+      <div class="header-row">
+        <h1>🐾 ねこごはんノート</h1>
+        <div>
+          <span class="user-badge" id="currentUserLabel"></span>
+          <button class="logout-btn" onclick="logout()">ログアウト</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn" data-tab="record" onclick="showTab('record')">記録入力</button>
+        <button class="tab-btn" data-tab="list" onclick="showTab('list')">給餌履歴</button>
+        <button class="tab-btn" data-tab="graph" onclick="showTab('graph')">グラフ</button>
+        <button class="tab-btn" data-tab="health" onclick="showTab('health')">体調メモ</button>
+        <button class="tab-btn" data-tab="cat" onclick="showTab('cat')">猫の情報</button>
+        <button class="tab-btn" data-tab="food" onclick="showTab('food')">フード管理</button>
+        <button class="tab-btn" data-tab="members" onclick="showTab('members')">メンバー管理</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- 記録入力 -->
+      <div class="screen" id="screen-record">
+        <div class="title">ご飯を記録する</div>
+        <div class="save-ok" id="recordSavedMsg">記録しました！</div>
+        <div class="card">
+          <label class="field-label">日付（記録を忘れた時だけ変更してください）</label>
+          <input type="date" id="inDate" class="field-input" onchange="onTimeChange()">
+
+          <label class="field-label">時間帯</label>
+          <select id="inTime" onchange="onTimeChange()">
+            <option value="朝">朝</option>
+            <option value="おやつ">おやつ</option>
+            <option value="夜">夜</option>
+          </select>
+
+          <label class="field-label">フード1（主食 または おやつ）</label>
+          <select id="inFood" onchange="onFoodChange()"></select>
+
+          <div id="mainFoodFields">
+            <label class="field-label">フード1のグラム数</label>
+            <input type="number" id="inGrams" class="field-input" placeholder="例：40" min="0" step="0.1">
+
+            <div id="food2Block" style="display:none;">
+              <label class="field-label">フード2（ウェット・任意）</label>
+              <select id="inFood2" onchange="onFood2Change()"></select>
+              <div class="sub-note">↑与えない場合は「選択しない」のままで大丈夫です</div>
+
+              <div id="food2GramsBlock" style="display:none;">
+                <label class="field-label">フード2のグラム数</label>
+                <input type="number" id="inGrams2" class="field-input" placeholder="例：14" min="0" step="0.1" oninput="updateNextMealSuggestion()">
+              </div>
+
+              <div id="food2OtherFields" style="display:none;">
+                <label class="field-label">フード2の名前</label>
+                <input type="text" id="inFood2OtherName" class="field-input" placeholder="例：お試しサンプル">
+                <label class="field-label">フード2のグラム数（任意）</label>
+                <input type="number" id="inFood2OtherGrams" class="field-input" placeholder="わかれば入力" min="0" step="0.1" oninput="updateNextMealSuggestion()">
+                <label class="field-label">フード2のカロリー（任意）</label>
+                <input type="number" id="inFood2OtherKcal" class="field-input" placeholder="わかれば入力" min="0" step="0.1" oninput="updateNextMealSuggestion()">
+              </div>
+            </div>
+          </div>
+
+          <div id="treatFields" style="display:none;">
+            <label class="field-label">個数（本・袋）</label>
+            <input type="number" id="inCount" class="field-input" placeholder="例：1" min="0" step="1" oninput="updateTreatKcal()">
+            <label class="field-label">カロリー（自動計算）</label>
+            <input type="text" id="inKcalShow" class="field-input" readonly>
+          </div>
+
+          <div id="otherFoodFields" style="display:none;">
+            <label class="field-label">フード1の名前</label>
+            <input type="text" id="inFoodOtherName" class="field-input" placeholder="例：お試しサンプル">
+            <label class="field-label">グラム数（任意）</label>
+            <input type="number" id="inFoodOtherGrams" class="field-input" placeholder="わかれば入力" min="0" step="0.1">
+            <label class="field-label">カロリー（任意）</label>
+            <input type="number" id="inFoodOtherKcal" class="field-input" placeholder="わかれば入力" min="0" step="0.1">
+          </div>
+        </div>
+
+        <div class="result-box" id="nextMealBox">フードを選ぶと、目安が表示されます</div>
+
+        <button class="big-btn" onclick="addRecord()">記録する にゃ！</button>
+
+        <div class="history-card">
+          <div class="history-title">過去1週間の履歴から選ぶ</div>
+          <div id="weekHistoryList"></div>
+        </div>
+      </div>
+
+      <!-- 給餌履歴 -->
+      <div class="screen" id="screen-list">
+        <div class="title">給餌履歴</div>
+        <label class="field-label">表示する期間</label>
+        <select id="listRange" onchange="renderList()">
+          <option value="week">過去7日</option>
+          <option value="month">過去1か月</option>
+          <option value="all">過去すべて</option>
+        </select>
+        <div id="listArea"></div>
+      </div>
+
+      <!-- グラフ -->
+      <div class="screen" id="screen-graph">
+        <div class="title">食事量のグラフ</div>
+        <div class="sub-note">直近14日間の、合計カロリー（kcal）です。緑の点線は1日の目安カロリーです</div>
+        <canvas id="graphCanvas" width="440" height="220"></canvas>
+        <div id="graphEmpty" class="empty-msg" style="display:none;">まだ記録がありません</div>
+
+        <div class="title" style="font-size:18px; margin-top:24px;">体重のグラフ</div>
+        <div class="sub-note">体調メモに記録した体重（kg）の推移です</div>
+        <canvas id="weightGraphCanvas" width="440" height="220"></canvas>
+        <div id="weightGraphEmpty" class="empty-msg" style="display:none;">まだ体重の記録がありません</div>
+      </div>
+
+      <!-- 体調メモ -->
+      <div class="screen" id="screen-health">
+        <div class="title">体調メモ</div>
+        <div class="save-ok" id="healthSavedMsg">保存しました！</div>
+        <div class="card">
+          <label class="field-label">日付</label>
+          <input type="date" id="healthDate" class="field-input">
+          <label class="field-label">体重（kg）</label>
+          <input type="number" id="healthWeight" class="field-input" placeholder="例：4.2" step="0.01">
+          <label class="field-label">メモ</label>
+          <textarea id="healthMemo" rows="3" placeholder="気になったことを書いてください"></textarea>
+          <button class="big-btn" onclick="addHealthNote()">保存する</button>
+        </div>
+        <div class="title" style="font-size:18px;">これまでのメモ</div>
+        <div id="healthList"></div>
+      </div>
+
+      <!-- 猫の情報 -->
+      <div class="screen" id="screen-cat">
+        <div class="title">猫の情報</div>
+        <div class="save-ok" id="catSavedMsg">保存しました！</div>
+        <div class="card">
+          <label class="field-label">名前</label>
+          <input type="text" id="catName" class="field-input" placeholder="例：もも">
+          <label class="field-label">標準体重（kg）</label>
+          <input type="number" id="catWeight" class="field-input" placeholder="例：4.0" step="0.01">
+          <label class="field-label">年齢</label>
+          <input type="number" id="catAge" class="field-input" placeholder="例：3" step="1" min="0">
+          <label class="field-label">1日の摂取目安カロリー（kcal）</label>
+          <input type="number" id="catDailyKcal" class="field-input" placeholder="例：200" step="1" min="0">
+          <div class="sub-note">↑朝・おやつ・夜の合計で、この数字を目安に計算します</div>
+          <button class="big-btn" onclick="saveCatInfo()">保存する</button>
+        </div>
+      </div>
+
+      <!-- フード管理 -->
+      <div class="screen" id="screen-food">
+        <div class="title">フード管理</div>
+        <div class="save-ok" id="foodSavedMsg">保存しました！</div>
+        <div class="card">
+          <label class="field-label">種類</label>
+          <select id="foodType" onchange="onFoodTypeChange()">
+            <option value="main">主食</option>
+            <option value="wet">ウェット</option>
+            <option value="treat">おやつ</option>
+          </select>
+
+          <label class="field-label">フード名</label>
+          <input type="text" id="foodName" class="field-input" placeholder="例：カルカン ビーフ">
+
+          <button type="button" class="ghost-btn" style="width:100%; margin-bottom:10px;" onclick="searchCalorieGoogle()">🔍 Googleでカロリーを検索する</button>
+          <button type="button" class="ghost-btn" style="width:100%; margin-bottom:10px;" onclick="searchCalorieGemini()">✨ 検索ワードをコピーする（Gemini用）</button>
+          <div class="sub-note">↑調べた数値は、下の欄にご自身で入力してください（自動入力はされません）</div>
+
+          <div id="foodMainField">
+            <label class="field-label">100gあたりのカロリー（kcal）</label>
+            <input type="number" id="foodKcalPer100g" class="field-input" placeholder="例：350" step="0.1">
+          </div>
+
+          <div id="foodWetField" style="display:none;">
+            <label class="field-label">1食あたりのグラム数</label>
+            <input type="number" id="foodWetGrams" class="field-input" placeholder="例：14" step="0.1">
+            <label class="field-label">1食あたりのカロリー（kcal）</label>
+            <input type="number" id="foodWetKcal" class="field-input" placeholder="例：11" step="0.1">
+          </div>
+
+          <div id="foodTreatField" style="display:none;">
+            <label class="field-label">1つ（本・袋）あたりのカロリー（kcal）</label>
+            <input type="number" id="foodTreatKcal" class="field-input" placeholder="例：7" step="0.1">
+          </div>
+
+          <button class="big-btn" onclick="addFood()">フードを追加する</button>
+        </div>
+        <div class="title" style="font-size:18px;">登録済みのフード</div>
+        <div id="foodList"></div>
+      </div>
+
+      <!-- メンバー管理 -->
+      <div class="screen" id="screen-members">
+        <div class="title">メンバー管理</div>
+        <div class="sub-note">ここに追加したGoogleアカウントだけが、ログインできます</div>
+        <div class="save-ok" id="memberSavedMsg">追加しました！</div>
+        <div class="card" id="memberAddCard">
+          <label class="field-label">追加するGoogleアカウント（メールアドレス）</label>
+          <input type="email" id="memberEmail" class="field-input" placeholder="例：family@gmail.com">
+          <button class="big-btn" onclick="addMember()">メンバーを追加する</button>
+        </div>
+        <div class="sub-note" id="memberNotOwnerMsg" style="display:none;">メンバーの追加・削除は、管理者アカウントのみ行えます</div>
+        <div class="title" style="font-size:18px;">現在のメンバー</div>
+        <div id="memberList"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   Google ログイン・Googleドライブへの保存設定
+=========================================================== */
+const CLIENT_ID = '932666241542-9alot7gjfrb2bqado55oi4h7225of0eq.apps.googleusercontent.com';
+// 【要設定】Apps ScriptをWebアプリとしてデプロイした後に発行されるURLをここに入れてください
+// （例：'https://script.google.com/macros/s/xxxxxxxxxxxx/exec'）
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWCNELkhSpkyrw--arX1frpPO597regbAUWYdvTm3dVwxEtSuXHNv3nMb8dfOLGGl5Ow/exec';
+// 旧版はドライブ全体(drive)スコープが必要でしたが、v2ではドライブに直接アクセスしないため
+// 「本人確認（メールアドレス）」だけで済む、より狭いスコープにしています
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
+const INITIAL_OWNER_EMAIL = 'kk.whiteberry.1249@gmail.com';
+
+let accessToken = null;
+let tokenClient = null;
+let currentUserEmail = null;
+let currentUserName = null;
+let tokenMode = 'login'; // 'login' | 'silent-init' | 'refresh'
+let refreshTimer = null;
+
+function defaultData() {
+  return {
+    members: [],
+    cat: { name: '', weight: '', age: '', dailyKcal: '' },
+    foods: [],      // {id, type:'main'|'wet'|'treat', name, kcalPer100g, servingGrams, servingKcal, treatKcal}
+    records: [],    // {id, date, time, foodId, foodName, foodType, grams, kcal, user}
+    health: []      // {id, date, weight, memo}
+  };
+}
+
+let state = defaultData();
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* ===========================================================
+   Googleログイン
+=========================================================== */
+window.addEventListener('load', () => {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: onTokenReceived
+  });
+  attemptSilentLogin();
+});
+
+function attemptSilentLogin() {
+  tokenMode = 'silent-init';
+  document.getElementById('googleLoginBtn').style.display = 'none';
+  document.getElementById('loginLoading').style.display = 'block';
+  setTimeout(() => {
+    if (!accessToken) {
+      document.getElementById('loginLoading').style.display = 'none';
+      document.getElementById('googleLoginBtn').style.display = 'block';
+    }
+  }, 4000);
+  try {
+    tokenClient.requestAccessToken({ prompt: '' });
+  } catch (e) {
+    document.getElementById('loginLoading').style.display = 'none';
+    document.getElementById('googleLoginBtn').style.display = 'block';
+  }
+}
+
+function startLogin() {
+  hideLoginError();
+  tokenMode = 'login';
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function hideLoginError() {
+  document.getElementById('loginError').style.display = 'none';
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('loginLoading').style.display = 'none';
+  document.getElementById('googleLoginBtn').style.display = 'block';
+  accessToken = null;
+}
+
+function startTokenRefreshTimer() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    tokenMode = 'refresh';
+    tokenClient.requestAccessToken({ prompt: '' });
+  }, 50 * 60 * 1000);
+}
+
+function stopTokenRefreshTimer() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+
+async function onTokenReceived(resp) {
+  if (resp.error) {
+    if (tokenMode === 'silent-init') {
+      document.getElementById('loginLoading').style.display = 'none';
+      document.getElementById('googleLoginBtn').style.display = 'block';
+      return;
+    }
+    if (tokenMode === 'refresh') {
+      return;
+    }
+    showLoginError('ログインに失敗しました。もう一度お試しください。');
+    return;
+  }
+
+  accessToken = resp.access_token;
+
+  if (tokenMode === 'refresh') {
+    return;
+  }
+
+  document.getElementById('googleLoginBtn').style.display = 'none';
+  document.getElementById('loginLoading').style.display = 'block';
+  try {
+    await afterSignIn();
+  } catch (e) {
+    showLoginError('エラーが発生しました（詳細：' + (e && e.message ? e.message : e) + '）');
+  }
+}
+
+async function afterSignIn() {
+  const res = await callScript_('load', {});
+  if (!res.ok) {
+    showLoginError(res.error || 'ログインに失敗しました。');
+    return;
+  }
+  currentUserEmail = res.email;
+  currentUserName = res.name || res.email;
+  state = res.data;
+  showApp();
+}
+
+function logout() {
+  stopTokenRefreshTimer();
+  if (accessToken) {
+    google.accounts.oauth2.revoke(accessToken, () => {});
+  }
+  accessToken = null;
+  currentUserEmail = null;
+  currentUserName = null;
+  state = defaultData();
+
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('googleLoginBtn').style.display = 'block';
+  document.getElementById('loginLoading').style.display = 'none';
+  hideLoginError();
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('currentUserLabel').textContent = currentUserName;
+  initAppScreens();
+  showTab('record');
+  startTokenRefreshTimer();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.getElementById('appScreen').style.display === 'block') {
+    showTab(currentTabName);
+  }
+});
+
+/* ===========================================================
+   Apps Script（中継サーバー）との通信
+   ※ Googleドライブへは直接アクセスせず、すべてApps Script経由にしています
+=========================================================== */
+async function callScript_(action, payload) {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+    throw new Error('APPS_SCRIPT_URLが設定されていません（app_v2本体の先頭付近を確認してください）');
+  }
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    // Content-Typeをtext/plainにしているのは、application/jsonにするとブラウザが
+    // 事前確認（プリフライト）通信を送り、Apps Script側で弾かれてしまうためです
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action, accessToken }, payload))
+  });
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error('サーバーの応答が正しく読み取れませんでした: ' + text.slice(0, 150));
+  }
+  return json;
+}
+
+async function saveData() {
+  try {
+    const res = await callScript_('save', { data: state });
+    if (!res.ok) {
+      alert('保存に失敗しました（詳細：' + (res.error || '不明なエラー') + '）');
+    }
+  } catch (e) {
+    alert('保存に失敗しました（詳細：' + (e && e.message ? e.message : e) + '）');
+  }
+}
+
+async function refreshFromDrive() {
+  try {
+    const res = await callScript_('load', {});
+    if (res.ok) state = res.data;
+  } catch (e) {
+    // 読み込みに失敗した場合は、直前の内容のまま表示を続けます
+  }
+}
+
+/* ===========================================================
+   タブ切り替え
+=========================================================== */
+let currentTabName = 'record';
+
+async function showTab(name) {
+  currentTabName = name;
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('current'));
+  document.querySelector('.tab-btn[data-tab="' + name + '"]').classList.add('current');
+
+  await refreshFromDrive();
+
+  if (name === 'list') renderList();
+  if (name === 'graph') { renderGraph(); renderWeightGraph(); }
+  if (name === 'health') renderHealthList();
+  if (name === 'cat') renderCatInfo();
+  if (name === 'food') renderFoodList();
+  if (name === 'record') renderFoodSelect();
+  if (name === 'members') renderMemberList();
+}
+
+function initAppScreens() {
+  const inDate = document.getElementById('inDate');
+  inDate.value = todayStr();
+  inDate.max = todayStr();
+  renderFoodSelect();
+  document.getElementById('healthDate').value = todayStr();
+}
+
+/* ===========================================================
+   猫の情報
+=========================================================== */
+function renderCatInfo() {
+  document.getElementById('catName').value = state.cat.name || '';
+  document.getElementById('catWeight').value = state.cat.weight || '';
+  document.getElementById('catAge').value = state.cat.age || '';
+  document.getElementById('catDailyKcal').value = state.cat.dailyKcal || '';
+}
+
+function saveCatInfo() {
+  state.cat.name = document.getElementById('catName').value.trim();
+  state.cat.weight = document.getElementById('catWeight').value;
+  state.cat.age = document.getElementById('catAge').value;
+  state.cat.dailyKcal = document.getElementById('catDailyKcal').value;
+  saveData();
+  flashMsg('catSavedMsg');
+  renderFoodSelect();
+}
+
+/* ===========================================================
+   フード管理
+=========================================================== */
+function searchCalorieGoogle() {
+  const name = document.getElementById('foodName').value.trim();
+  if (!name) { alert('フード名を入力してください'); return; }
+  const url = 'https://www.google.com/search?q=' + encodeURIComponent(name + ' カロリー');
+  window.open(url, '_blank');
+}
+
+async function searchCalorieGemini() {
+  const name = document.getElementById('foodName').value.trim();
+  if (!name) { alert('フード名を入力してください'); return; }
+  const query = name + ' カロリー';
+  try {
+    await navigator.clipboard.writeText(query);
+    alert('検索ワードをコピーしました：\n「' + query + '」\n\nGeminiが開いたら、貼り付けて聞いてください。');
+  } catch (e) {
+    alert('コピーに失敗しました。手動でこちらを入力してください：\n「' + query + '」');
+  }
+  window.open('https://gemini.google.com/app', '_blank');
+}
+
+function onFoodTypeChange() {
+  const type = document.getElementById('foodType').value;
+  document.getElementById('foodMainField').style.display = (type === 'main') ? 'block' : 'none';
+  document.getElementById('foodWetField').style.display = (type === 'wet') ? 'block' : 'none';
+  document.getElementById('foodTreatField').style.display = (type === 'treat') ? 'block' : 'none';
+}
+
+function addFood() {
+  const type = document.getElementById('foodType').value;
+  const name = document.getElementById('foodName').value.trim();
+  if (!name) { alert('フード名を入力してください'); return; }
+
+  const food = { id: uid(), type, name };
+  if (type === 'main') {
+    const k = parseFloat(document.getElementById('foodKcalPer100g').value);
+    if (isNaN(k) || k <= 0) { alert('100gあたりのカロリーを入力してください'); return; }
+    food.kcalPer100g = k;
+  } else if (type === 'wet') {
+    const g = parseFloat(document.getElementById('foodWetGrams').value);
+    const k = parseFloat(document.getElementById('foodWetKcal').value);
+    if (isNaN(g) || g <= 0) { alert('1食あたりのグラム数を入力してください'); return; }
+    if (isNaN(k) || k <= 0) { alert('1食あたりのカロリーを入力してください'); return; }
+    food.servingGrams = g;
+    food.servingKcal = k;
+  } else {
+    const k = parseFloat(document.getElementById('foodTreatKcal').value);
+    if (isNaN(k) || k <= 0) { alert('1つあたりのカロリーを入力してください'); return; }
+    food.treatKcal = k;
+  }
+
+  state.foods.push(food);
+  saveData();
+
+  document.getElementById('foodName').value = '';
+  document.getElementById('foodKcalPer100g').value = '';
+  document.getElementById('foodWetGrams').value = '';
+  document.getElementById('foodWetKcal').value = '';
+  document.getElementById('foodTreatKcal').value = '';
+
+  flashMsg('foodSavedMsg');
+  renderFoodList();
+  renderFoodSelect();
+}
+
+function deleteFood(id) {
+  if (!confirm('このフードを削除しますか？')) return;
+  state.foods = state.foods.filter(f => f.id !== id);
+  saveData();
+  renderFoodList();
+  renderFoodSelect();
+}
+
+function renderFoodList() {
+  const area = document.getElementById('foodList');
+  area.innerHTML = '';
+  if (state.foods.length === 0) {
+    area.innerHTML = '<div class="empty-msg">まだフードが登録されていません</div>';
+    return;
+  }
+  state.foods.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    let detail;
+    if (f.type === 'main') {
+      detail = '主食 ／ 100gあたり ' + escapeHtml(f.kcalPer100g || '?') + ' kcal';
+    } else if (f.type === 'wet') {
+      detail = 'ウェット ／ 1食：' + escapeHtml(f.servingGrams) + ' g ／ 1食あたり ' + escapeHtml(f.servingKcal) + ' kcal';
+    } else {
+      detail = 'おやつ ／ 1個あたり：' + escapeHtml(f.treatKcal) + ' kcal';
+    }
+    div.innerHTML = '<div class="info"><div class="name">' + escapeHtml(f.name) + '</div><div>' + detail + '</div></div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => deleteFood(f.id);
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+/* ===========================================================
+   記録入力
+=========================================================== */
+function renderFoodSelect() {
+  const sel = document.getElementById('inFood');
+  const prevValue = sel.value;
+  sel.innerHTML = '';
+  const food1Choices = state.foods.filter(f => f.type === 'main' || f.type === 'treat');
+  if (food1Choices.length === 0) {
+    sel.innerHTML = '<option value="">（フード管理タブで登録してください）</option>';
+    document.getElementById('nextMealBox').textContent = 'まずフードを登録してください';
+    return;
+  }
+  food1Choices.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.name + (f.type === 'main' ? '（主食）' : '（おやつ）');
+    sel.appendChild(opt);
+  });
+  const otherOpt1 = document.createElement('option');
+  otherOpt1.value = '__other__';
+  otherOpt1.textContent = '📝 その他（名前を入力）';
+  sel.appendChild(otherOpt1);
+
+  if (prevValue) sel.value = prevValue;
+  renderFood2Select();
+  onTimeChange();
+  renderWeekHistory();
+}
+
+function renderWeekHistory() {
+  const area = document.getElementById('weekHistoryList');
+  if (!area) return;
+
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 6);
+  const cutoffStr = cutoff.getFullYear() + '-' + String(cutoff.getMonth() + 1).padStart(2, '0') + '-' + String(cutoff.getDate()).padStart(2, '0');
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+
+  const list = state.records
+    .filter(r => r.date >= cutoffStr)
+    .slice()
+    .sort((a, b) => (a.date + a.id < b.date + b.id ? 1 : -1));
+
+  area.innerHTML = '';
+  if (list.length === 0) {
+    area.innerHTML = '<div class="empty-msg">過去1週間の記録はありません</div>';
+    return;
+  }
+
+  groupRecords(list).forEach(group => {
+    const first = group[0];
+    const d = new Date(first.date + 'T00:00:00');
+    const label = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdays[d.getDay()] + '）' + escapeHtml(first.time);
+    const foodLines = group.map(r => {
+      const amount = (r.foodType !== 'treat' && r.grams) ? escapeHtml(r.grams) + 'g' : '';
+      return '<div class="foodline">' + escapeHtml(r.foodName) + (amount ? '　' + amount : '') + '</div>';
+    }).join('');
+
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = '<div class="info"><div class="date">' + label + '</div>' + foodLines + '</div>';
+
+    const btn = document.createElement('button');
+    btn.className = 'pick-btn';
+    btn.textContent = '選ぶ';
+    btn.onclick = () => pickHistoryGroup(group.map(r => r.id));
+    div.appendChild(btn);
+    area.appendChild(div);
+  });
+}
+
+function pickHistoryGroup(ids) {
+  const records = ids.map(id => state.records.find(r => r.id === id)).filter(Boolean);
+  if (records.length === 0) return;
+
+  document.getElementById('inTime').value = records[0].time;
+
+  // ウェット（フード2）は、主食が選ばれた後に反映する必要があるため最後に処理する
+  const ordered = records.filter(r => r.foodType !== 'wet').concat(records.filter(r => r.foodType === 'wet'));
+  ordered.forEach(r => applyHistoryRecord(r));
+
+  // ウェットの反映時に目安計算が走り、フード1のグラム数が上書きされるため、最後に履歴の値へ戻す
+  const mainRecord = records.find(r => r.foodType === 'main');
+  if (mainRecord) {
+    document.getElementById('inGrams').value = mainRecord.grams;
+  }
+}
+
+function applyHistoryRecord(r) {
+  if (r.foodType === 'wet') {
+    const mainFood = getSelectedFood();
+    if (!mainFood || mainFood.type !== 'main') {
+      alert('先にフード1（主食）を選んでから、ウェットの履歴を選んでください');
+      return;
+    }
+    if (!state.foods.some(f => f.id === r.foodId)) {
+      alert('このフードは削除されています');
+      return;
+    }
+    document.getElementById('inFood2').value = r.foodId;
+    onFood2Change();
+    document.getElementById('inGrams2').value = r.grams;
+    updateNextMealSuggestion();
+    return;
+  }
+
+  const foodSel = document.getElementById('inFood');
+
+  if (r.foodType === 'other') {
+    foodSel.value = '__other__';
+    onFoodChange();
+    document.getElementById('inFoodOtherName').value = r.foodName;
+    document.getElementById('inFoodOtherGrams').value = r.grams || '';
+    document.getElementById('inFoodOtherKcal').value = r.kcal || '';
+    return;
+  }
+
+  const food = state.foods.find(f => f.id === r.foodId);
+  if (!food) { alert('このフードは削除されています'); return; }
+
+  foodSel.value = r.foodId;
+  onFoodChange();
+
+  if (r.foodType === 'main') {
+    document.getElementById('inGrams').value = r.grams;
+  } else if (r.foodType === 'treat') {
+    const count = food.treatKcal ? Math.round((r.kcal / food.treatKcal) * 10) / 10 : '';
+    document.getElementById('inCount').value = count;
+    updateTreatKcal();
+  }
+}
+
+function findLastRecord(time, foodType) {
+  const matches = state.records.filter(r => r.time === time && r.foodType === foodType);
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => (a.date + a.id < b.date + b.id ? 1 : -1));
+  return matches[0];
+}
+
+function onTimeChange() {
+  const time = document.getElementById('inTime').value;
+  const foodSel = document.getElementById('inFood');
+  const selectedDate = document.getElementById('inDate').value || todayStr();
+  if (!foodSel.options.length) return;
+
+  if (time === '朝' && selectedDate === todayStr()) {
+    const lastMain = findLastRecord('朝', 'main');
+    if (lastMain && state.foods.some(f => f.id === lastMain.foodId)) {
+      foodSel.value = lastMain.foodId;
+    }
+    onFoodChange();
+
+    const food = getSelectedFood();
+    if (food && food.type === 'main') {
+      if (lastMain && lastMain.foodId === food.id) {
+        document.getElementById('inGrams').value = lastMain.grams;
+      }
+      const lastWet = findLastRecord('朝', 'wet');
+      const food2Sel = document.getElementById('inFood2');
+      if (lastWet && state.foods.some(f => f.id === lastWet.foodId)) {
+        food2Sel.value = lastWet.foodId;
+        onFood2Change();
+        document.getElementById('inGrams2').value = lastWet.grams;
+        updateNextMealSuggestion();
+      }
+    }
+  } else {
+    foodSel.selectedIndex = 0;
+    document.getElementById('inFood2').value = '';
+    onFoodChange();
+    onFood2Change();
+  }
+}
+
+function renderFood2Select() {
+  const sel = document.getElementById('inFood2');
+  const prevValue = sel.value;
+  sel.innerHTML = '<option value="">選択しない</option>';
+  state.foods.filter(f => f.type === 'wet').forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.name + '（ウェット）';
+    sel.appendChild(opt);
+  });
+  const otherOpt2 = document.createElement('option');
+  otherOpt2.value = '__other__';
+  otherOpt2.textContent = '📝 その他（名前を入力）';
+  sel.appendChild(otherOpt2);
+
+  if (prevValue) sel.value = prevValue;
+}
+
+function getSelectedFood() {
+  const id = document.getElementById('inFood').value;
+  return state.foods.find(f => f.id === id);
+}
+
+function getSelectedFood2() {
+  const id = document.getElementById('inFood2').value;
+  return id ? state.foods.find(f => f.id === id) : null;
+}
+
+function onFoodChange() {
+  const sel = document.getElementById('inFood').value;
+  const mainFields = document.getElementById('mainFoodFields');
+  const treatFields = document.getElementById('treatFields');
+  const otherFields = document.getElementById('otherFoodFields');
+  const food2Block = document.getElementById('food2Block');
+  const box = document.getElementById('nextMealBox');
+
+  if (sel === '__other__') {
+    mainFields.style.display = 'none';
+    treatFields.style.display = 'none';
+    otherFields.style.display = 'block';
+    box.textContent = '名前を入力して記録してください';
+    return;
+  }
+  otherFields.style.display = 'none';
+
+  const food = getSelectedFood();
+  if (!food) {
+    mainFields.style.display = 'block';
+    treatFields.style.display = 'none';
+    food2Block.style.display = 'none';
+    return;
+  }
+  if (food.type === 'main') {
+    mainFields.style.display = 'block';
+    treatFields.style.display = 'none';
+    food2Block.style.display = 'block';
+    updateNextMealSuggestion();
+  } else {
+    mainFields.style.display = 'none';
+    treatFields.style.display = 'block';
+    food2Block.style.display = 'none';
+    document.getElementById('inFood2').value = '';
+    document.getElementById('inGrams2').value = '';
+    document.getElementById('inCount').value = '';
+    document.getElementById('inKcalShow').value = '';
+    updateNextMealSuggestion();
+  }
+}
+
+function onFood2Change() {
+  const sel = document.getElementById('inFood2').value;
+  const gramsBlock = document.getElementById('food2GramsBlock');
+  const otherBlock = document.getElementById('food2OtherFields');
+
+  if (sel === '__other__') {
+    gramsBlock.style.display = 'none';
+    otherBlock.style.display = 'block';
+    document.getElementById('inGrams2').value = '';
+  } else {
+    otherBlock.style.display = 'none';
+    const food2 = getSelectedFood2();
+    gramsBlock.style.display = food2 ? 'block' : 'none';
+    if (!food2) document.getElementById('inGrams2').value = '';
+  }
+  updateNextMealSuggestion();
+}
+
+function updateTreatKcal() {
+  const food = getSelectedFood();
+  const count = parseFloat(document.getElementById('inCount').value) || 0;
+  if (food && food.type === 'treat') {
+    document.getElementById('inKcalShow').value = (count * food.treatKcal).toFixed(1) + ' kcal';
+  }
+}
+
+function todayRecordsForFood(foodId) {
+  const t = document.getElementById('inDate').value || todayStr();
+  return state.records.filter(r => r.date === t && r.foodId === foodId);
+}
+
+function todayTotalKcal() {
+  const t = document.getElementById('inDate').value || todayStr();
+  return state.records
+    .filter(r => r.date === t)
+    .reduce((sum, r) => sum + (r.kcal || 0), 0);
+}
+
+function updateNextMealSuggestion() {
+  const food = getSelectedFood();
+  const box = document.getElementById('nextMealBox');
+  if (!food) { box.textContent = 'フードを選ぶと、目安が表示されます'; return; }
+
+  if (food.type === 'main') {
+    const dailyKcal = parseFloat(state.cat.dailyKcal);
+    if (!dailyKcal) {
+      box.textContent = '「猫の情報」タブで、1日の摂取目安カロリーを登録してください';
+      return;
+    }
+    const usedKcal = todayTotalKcal();
+    const remainKcal = Math.max(0, dailyKcal - usedKcal);
+
+    const food2Sel = document.getElementById('inFood2').value;
+    let kcal2 = 0;
+    let food2Label = '';
+    if (food2Sel === '__other__') {
+      kcal2 = parseFloat(document.getElementById('inFood2OtherKcal').value) || 0;
+      const grams2 = document.getElementById('inFood2OtherGrams').value;
+      food2Label = (grams2 ? grams2 + 'g' : 'フード2');
+    } else {
+      const food2 = getSelectedFood2();
+      const grams2 = parseFloat(document.getElementById('inGrams2').value) || 0;
+      if (food2 && grams2 > 0) {
+        kcal2 = grams2 * (food2.servingKcal / food2.servingGrams);
+        food2Label = grams2 + 'g';
+      }
+    }
+
+    const remainKcalAfterFood2 = Math.max(0, remainKcal - kcal2);
+    const gramsForFood1 = food.kcalPer100g ? remainKcalAfterFood2 * 100 / food.kcalPer100g : 0;
+
+    if (kcal2 > 0) {
+      box.innerHTML = '1日の残り' + remainKcal.toFixed(1) + 'kcalから、フード2（' + food2Label + '）のぶんを差し引いて、<br>フード1「' + escapeHtml(food.name) + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
+    } else {
+      box.innerHTML = '1日の残り<b>' + remainKcal.toFixed(1) + 'kcal</b>から計算した、<br>フード1「' + escapeHtml(food.name) + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
+    }
+    document.getElementById('inGrams').value = gramsForFood1.toFixed(1);
+  } else {
+    const givenKcal = todayRecordsForFood(food.id).reduce((sum, r) => sum + (r.kcal || 0), 0);
+    box.textContent = '本日の「' + food.name + '」合計カロリー：' + givenKcal.toFixed(1) + ' kcal';
+  }
+}
+
+function addRecord() {
+  const foodSel = document.getElementById('inFood').value;
+  if (!foodSel) { alert('フードを選んでください'); return; }
+  const time = document.getElementById('inTime').value;
+  const date = document.getElementById('inDate').value || todayStr();
+
+  if (foodSel === '__other__') {
+    const name = document.getElementById('inFoodOtherName').value.trim();
+    if (!name) { alert('フード1の名前を入力してください'); return; }
+    const g = parseFloat(document.getElementById('inFoodOtherGrams').value) || 0;
+    const k = parseFloat(document.getElementById('inFoodOtherKcal').value) || 0;
+    state.records.push({ id: uid(), date, time, foodId: null, foodName: name, foodType: 'other', grams: g, kcal: k, user: currentUserName });
+  } else {
+    const food = getSelectedFood();
+    if (!food) { alert('フードを選んでください'); return; }
+
+    if (food.type === 'main') {
+      const g = parseFloat(document.getElementById('inGrams').value);
+      if (isNaN(g) || g <= 0) { alert('フード1のグラム数を入力してください'); return; }
+      const kcal1 = food.kcalPer100g ? g * food.kcalPer100g / 100 : 0;
+      state.records.push({ id: uid(), date, time, foodId: food.id, foodName: food.name, foodType: food.type, grams: g, kcal: kcal1, user: currentUserName });
+
+      const food2Sel = document.getElementById('inFood2').value;
+      if (food2Sel === '__other__') {
+        const name2 = document.getElementById('inFood2OtherName').value.trim();
+        if (name2) {
+          const g2 = parseFloat(document.getElementById('inFood2OtherGrams').value) || 0;
+          const k2 = parseFloat(document.getElementById('inFood2OtherKcal').value) || 0;
+          state.records.push({ id: uid(), date, time, foodId: null, foodName: name2, foodType: 'other', grams: g2, kcal: k2, user: currentUserName });
+        }
+      } else if (food2Sel) {
+        const food2 = getSelectedFood2();
+        const grams2 = parseFloat(document.getElementById('inGrams2').value) || 0;
+        if (food2 && grams2 > 0) {
+          const kcal2 = grams2 * (food2.servingKcal / food2.servingGrams);
+          state.records.push({ id: uid(), date, time, foodId: food2.id, foodName: food2.name, foodType: food2.type, grams: grams2, kcal: kcal2, user: currentUserName });
+        }
+      }
+    } else {
+      const c = parseFloat(document.getElementById('inCount').value);
+      if (isNaN(c) || c <= 0) { alert('個数を入力してください'); return; }
+      const kcal = c * food.treatKcal;
+      state.records.push({ id: uid(), date, time, foodId: food.id, foodName: food.name, foodType: food.type, grams: 0, kcal, user: currentUserName });
+    }
+  }
+
+  saveData();
+
+  document.getElementById('inGrams').value = '';
+  document.getElementById('inGrams2').value = '';
+  document.getElementById('inFood2').value = '';
+  document.getElementById('food2GramsBlock').style.display = 'none';
+  document.getElementById('food2OtherFields').style.display = 'none';
+  document.getElementById('inFood2OtherName').value = '';
+  document.getElementById('inFood2OtherGrams').value = '';
+  document.getElementById('inFood2OtherKcal').value = '';
+  document.getElementById('inCount').value = '';
+  document.getElementById('inKcalShow').value = '';
+  document.getElementById('inFoodOtherName').value = '';
+  document.getElementById('inFoodOtherGrams').value = '';
+  document.getElementById('inFoodOtherKcal').value = '';
+
+  document.getElementById('inDate').value = todayStr();
+
+  flashMsg('recordSavedMsg');
+  updateNextMealSuggestion();
+  renderWeekHistory();
+}
+
+/* ===========================================================
+   一覧
+=========================================================== */
+function renderList() {
+  const range = document.getElementById('listRange').value;
+  const area = document.getElementById('listArea');
+  area.innerHTML = '';
+
+  let records = [...state.records].sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+
+  if (range === 'week') {
+    const limit = new Date();
+    limit.setDate(limit.getDate() - 7);
+    records = records.filter(r => new Date(r.date) >= limit);
+  } else if (range === 'month') {
+    const limit = new Date();
+    limit.setMonth(limit.getMonth() - 1);
+    records = records.filter(r => new Date(r.date) >= limit);
+  }
+  // 'all' はそのまま（保持しているすべての記録）
+
+  if (records.length === 0) {
+    area.innerHTML = '<div class="empty-msg">記録がありません</div>';
+    return;
+  }
+
+  groupRecords(records).forEach(group => {
+    const first = group[0];
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    const foodLines = group.map(r => {
+      const amount = (r.foodType === 'treat')
+        ? r.kcal.toFixed(1) + ' kcal'
+        : escapeHtml(r.grams) + ' g（' + r.kcal.toFixed(1) + ' kcal）';
+      return '<div class="foodline">' + escapeHtml(r.foodName) + '　' + amount + '</div>';
+    }).join('');
+    div.innerHTML =
+      '<div class="info">' +
+      '<div class="name">' + escapeHtml(first.date) + '　' + escapeHtml(first.time) + '　（記録：' + escapeHtml(first.user || '') + '）</div>' +
+      foodLines +
+      '</div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => deleteRecordGroup(group.map(r => r.id));
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+function groupRecords(records) {
+  const groups = {};
+  const order = [];
+  records.forEach(r => {
+    const key = r.date + '|' + r.time + '|' + (r.user || '');
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(r);
+  });
+  return order.map(key => groups[key]);
+}
+
+function deleteRecordGroup(ids) {
+  if (!confirm('この記録をまとめて削除しますか？')) return;
+  state.records = state.records.filter(r => !ids.includes(r.id));
+  saveData();
+  renderList();
+}
+
+/* ===========================================================
+   グラフ（1日の合計カロリー／直近14日）
+=========================================================== */
+function renderGraph() {
+  const canvas = document.getElementById('graphCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    days.push(key);
+  }
+
+  const totals = days.map(day =>
+    state.records
+      .filter(r => r.date === day)
+      .reduce((sum, r) => sum + (r.kcal || 0), 0)
+  );
+
+  const hasData = totals.some(v => v > 0);
+  document.getElementById('graphEmpty').style.display = hasData ? 'none' : 'block';
+
+  const targetKcal = parseFloat(state.cat.dailyKcal) || null;
+
+  const max = Math.max(1, targetKcal || 0, ...totals);
+  const padding = 24;
+  const w = canvas.width;
+  const h = canvas.height;
+  const barAreaW = w - padding * 2;
+  const barAreaH = h - padding * 2;
+  const barW = barAreaW / days.length * 0.6;
+  const gap = barAreaW / days.length;
+
+  ctx.strokeStyle = '#ffc53d';
+  ctx.beginPath();
+  ctx.moveTo(padding, h - padding);
+  ctx.lineTo(w - padding, h - padding);
+  ctx.stroke();
+
+  days.forEach((day, i) => {
+    const val = totals[i];
+    const barH = (val / max) * barAreaH;
+    const x = padding + i * gap + (gap - barW) / 2;
+    const y = h - padding - barH;
+    ctx.fillStyle = '#ff6f3c';
+    ctx.fillRect(x, y, barW, barH);
+
+    if (i % 2 === 0) {
+      ctx.fillStyle = '#8a6d2f';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(day.slice(5), x + barW / 2, h - padding + 12);
+    }
+  });
+
+  if (targetKcal) {
+    const ty = h - padding - (targetKcal / max) * barAreaH;
+    ctx.strokeStyle = '#1f8a53';
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padding, ty);
+    ctx.lineTo(w - padding, ty);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#1f8a53';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('目安：' + targetKcal.toFixed(0) + 'kcal', w - padding, ty - 4);
+  }
+}
+
+function renderWeightGraph() {
+  const canvas = document.getElementById('weightGraphCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const points = state.health
+    .filter(h => h.weight !== '' && h.weight !== null && h.weight !== undefined && !isNaN(parseFloat(h.weight)))
+    .map(h => ({ date: h.date, weight: parseFloat(h.weight) }))
+    .sort((a, b) => (a.date > b.date ? 1 : -1));
+
+  const hasData = points.length > 0;
+  document.getElementById('weightGraphEmpty').style.display = hasData ? 'none' : 'block';
+  if (!hasData) return;
+
+  const weights = points.map(p => p.weight);
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = Math.max(0.1, maxW - minW);
+  const padTop = maxW + range * 0.15;
+  const padBottom = Math.max(0, minW - range * 0.15);
+
+  const padding = 28;
+  const w = canvas.width;
+  const h = canvas.height;
+  const plotW = w - padding * 2;
+  const plotH = h - padding * 2;
+
+  const x = i => padding + (points.length === 1 ? plotW / 2 : (plotW * i) / (points.length - 1));
+  const y = v => padding + plotH - ((v - padBottom) / (padTop - padBottom)) * plotH;
+
+  ctx.strokeStyle = '#1f8a53';
+  ctx.beginPath();
+  ctx.moveTo(padding, h - padding);
+  ctx.lineTo(w - padding, h - padding);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#ff6f3c';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const px = x(i);
+    const py = y(p.weight);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = '#ff6f3c';
+  points.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(x(i), y(p.weight), 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#8a6d2f';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  points.forEach((p, i) => {
+    if (i === 0 || i === points.length - 1 || i % 3 === 0) {
+      ctx.fillText(p.date.slice(5), x(i), h - padding + 12);
+    }
+  });
+
+  ctx.textAlign = 'left';
+  ctx.fillText(maxW.toFixed(1) + 'kg', padding, y(maxW) - 4);
+  ctx.fillText(minW.toFixed(1) + 'kg', padding, y(minW) + 12);
+}
+
+/* ===========================================================
+   体調メモ
+=========================================================== */
+function addHealthNote() {
+  const date = document.getElementById('healthDate').value || todayStr();
+  const weight = document.getElementById('healthWeight').value;
+  const memo = document.getElementById('healthMemo').value.trim();
+  if (!weight && !memo) { alert('体重かメモのどちらかを入力してください'); return; }
+
+  state.health.push({ id: uid(), date, weight, memo });
+  saveData();
+
+  document.getElementById('healthWeight').value = '';
+  document.getElementById('healthMemo').value = '';
+
+  flashMsg('healthSavedMsg');
+  renderHealthList();
+}
+
+function deleteHealthNote(id) {
+  if (!confirm('このメモを削除しますか？')) return;
+  state.health = state.health.filter(h => h.id !== id);
+  saveData();
+  renderHealthList();
+}
+
+function renderHealthList() {
+  const area = document.getElementById('healthList');
+  area.innerHTML = '';
+  const items = [...state.health].sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (items.length === 0) {
+    area.innerHTML = '<div class="empty-msg">まだメモがありません</div>';
+    return;
+  }
+  items.forEach(h => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    div.innerHTML =
+      '<div class="info">' +
+      '<div class="name">' + escapeHtml(h.date || '') + (h.weight ? '　' + escapeHtml(h.weight) + ' kg' : '') + '</div>' +
+      '<div>' + escapeHtml(h.memo || '') + '</div>' +
+      '</div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => deleteHealthNote(h.id);
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+/* ===========================================================
+   メンバー管理
+=========================================================== */
+function isOwner() {
+  return currentUserEmail && currentUserEmail.toLowerCase() === INITIAL_OWNER_EMAIL.toLowerCase();
+}
+
+async function addMember() {
+  if (!isOwner()) { alert('メンバーの追加は、管理者アカウントのみ行えます'); return; }
+  const input = document.getElementById('memberEmail');
+  const email = input.value.trim();
+  if (!email) { alert('メールアドレスを入力してください'); return; }
+
+  const already = (state.members || []).some(e => e.toLowerCase() === email.toLowerCase());
+  if (already) { alert('すでに登録されています'); return; }
+
+  let res;
+  try {
+    res = await callScript_('addMember', { email });
+  } catch (e) {
+    alert('メンバー追加に失敗しました（詳細：' + (e && e.message ? e.message : e) + '）');
+    return;
+  }
+  if (!res.ok) { alert(res.error || 'メンバー追加に失敗しました'); return; }
+
+  state.members = res.members;
+
+  input.value = '';
+  flashMsg('memberSavedMsg');
+  renderMemberList();
+}
+
+async function removeMember(email) {
+  if (!isOwner()) { alert('メンバーの削除は、管理者アカウントのみ行えます'); return; }
+  if (email.toLowerCase() === currentUserEmail.toLowerCase()) {
+    alert('自分自身は削除できません');
+    return;
+  }
+  if (!confirm(email + ' を削除しますか？')) return;
+
+  let res;
+  try {
+    res = await callScript_('removeMember', { email });
+  } catch (e) {
+    alert('メンバー削除に失敗しました（詳細：' + (e && e.message ? e.message : e) + '）');
+    return;
+  }
+  if (!res.ok) { alert(res.error || 'メンバー削除に失敗しました'); return; }
+
+  state.members = res.members;
+  renderMemberList();
+}
+
+function renderMemberList() {
+  const owner = isOwner();
+  document.getElementById('memberAddCard').style.display = owner ? 'block' : 'none';
+  document.getElementById('memberNotOwnerMsg').style.display = owner ? 'none' : 'block';
+
+  const area = document.getElementById('memberList');
+  area.innerHTML = '';
+
+  if (!owner) {
+    area.innerHTML = '<div class="empty-msg">メンバーの一覧は、管理者アカウントのみ表示できます</div>';
+    return;
+  }
+
+  (state.members || []).forEach(email => {
+    const div = document.createElement('div');
+    div.className = 'list-item';
+    div.innerHTML = '<div class="info"><div class="name">' + escapeHtml(email) + '</div></div>';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger-btn';
+    delBtn.textContent = '削除';
+    delBtn.onclick = () => removeMember(email);
+    div.appendChild(delBtn);
+    area.appendChild(div);
+  });
+}
+
+/* ===========================================================
+   共通ユーティリティ
+=========================================================== */
+function flashMsg(id) {
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 1500);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
