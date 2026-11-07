@@ -950,11 +950,11 @@ function renderFoodList() {
     div.className = 'list-item';
     let detail;
     if (f.type === 'main') {
-      detail = '主食 ／ 100gあたり ' + (f.kcalPer100g || '?') + ' kcal';
+      detail = '主食 ／ 100gあたり ' + escapeHtml(f.kcalPer100g || '?') + ' kcal';
     } else if (f.type === 'wet') {
-      detail = 'ウェット ／ 1食：' + f.servingGrams + ' g ／ 1食あたり ' + f.servingKcal + ' kcal';
+      detail = 'ウェット ／ 1食：' + escapeHtml(f.servingGrams) + ' g ／ 1食あたり ' + escapeHtml(f.servingKcal) + ' kcal';
     } else {
-      detail = 'おやつ ／ 1個あたり：' + f.treatKcal + ' kcal';
+      detail = 'おやつ ／ 1個あたり：' + escapeHtml(f.treatKcal) + ' kcal';
     }
     div.innerHTML = '<div class="info"><div class="name">' + escapeHtml(f.name) + '</div><div>' + detail + '</div></div>';
     const delBtn = document.createElement('button');
@@ -1020,9 +1020,9 @@ function renderWeekHistory() {
   groupRecords(list).forEach(group => {
     const first = group[0];
     const d = new Date(first.date + 'T00:00:00');
-    const label = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdays[d.getDay()] + '）' + first.time;
+    const label = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdays[d.getDay()] + '）' + escapeHtml(first.time);
     const foodLines = group.map(r => {
-      const amount = (r.foodType !== 'treat' && r.grams) ? r.grams + 'g' : '';
+      const amount = (r.foodType !== 'treat' && r.grams) ? escapeHtml(r.grams) + 'g' : '';
       return '<div class="foodline">' + escapeHtml(r.foodName) + (amount ? '　' + amount : '') + '</div>';
     }).join('');
 
@@ -1283,9 +1283,9 @@ function updateNextMealSuggestion() {
     const gramsForFood1 = food.kcalPer100g ? remainKcalAfterFood2 * 100 / food.kcalPer100g : 0;
 
     if (kcal2 > 0) {
-      box.innerHTML = '1日の残り' + remainKcal.toFixed(1) + 'kcalから、フード2（' + food2Label + '）のぶんを差し引いて、<br>フード1「' + food.name + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
+      box.innerHTML = '1日の残り' + remainKcal.toFixed(1) + 'kcalから、フード2（' + food2Label + '）のぶんを差し引いて、<br>フード1「' + escapeHtml(food.name) + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
     } else {
-      box.innerHTML = '1日の残り<b>' + remainKcal.toFixed(1) + 'kcal</b>から計算した、<br>フード1「' + food.name + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
+      box.innerHTML = '1日の残り<b>' + remainKcal.toFixed(1) + 'kcal</b>から計算した、<br>フード1「' + escapeHtml(food.name) + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
     }
     document.getElementById('inGrams').value = gramsForFood1.toFixed(1);
   } else {
@@ -1396,12 +1396,12 @@ function renderList() {
     const foodLines = group.map(r => {
       const amount = (r.foodType === 'treat')
         ? r.kcal.toFixed(1) + ' kcal'
-        : r.grams + ' g（' + r.kcal.toFixed(1) + ' kcal）';
+        : escapeHtml(r.grams) + ' g（' + r.kcal.toFixed(1) + ' kcal）';
       return '<div class="foodline">' + escapeHtml(r.foodName) + '　' + amount + '</div>';
     }).join('');
     div.innerHTML =
       '<div class="info">' +
-      '<div class="name">' + first.date + '　' + first.time + '　（記録：' + escapeHtml(first.user || '') + '）</div>' +
+      '<div class="name">' + escapeHtml(first.date) + '　' + escapeHtml(first.time) + '　（記録：' + escapeHtml(first.user || '') + '）</div>' +
       foodLines +
       '</div>';
     const delBtn = document.createElement('button');
@@ -1611,7 +1611,7 @@ function renderHealthList() {
     div.className = 'list-item';
     div.innerHTML =
       '<div class="info">' +
-      '<div class="name">' + h.date + (h.weight ? '　' + h.weight + ' kg' : '') + '</div>' +
+      '<div class="name">' + escapeHtml(h.date || '') + (h.weight ? '　' + escapeHtml(h.weight) + ' kg' : '') + '</div>' +
       '<div>' + escapeHtml(h.memo || '') + '</div>' +
       '</div>';
     const delBtn = document.createElement('button');
