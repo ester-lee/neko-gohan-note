@@ -474,16 +474,18 @@
    Google ログイン・Googleドライブへの保存設定
 =========================================================== */
 const CLIENT_ID = '932666241542-9alot7gjfrb2bqado55oi4h7225of0eq.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
-const FOLDER_NAME = 'ねこごはんノート';
+// 【要設定】Apps ScriptをWebアプリとしてデプロイした後に発行されるURLをここに入れてください
+// （例：'https://script.google.com/macros/s/xxxxxxxxxxxx/exec'）
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWCNELkhSpkyrw--arX1frpPO597regbAUWYdvTm3dVwxEtSuXHNv3nMb8dfOLGGl5Ow/exec';
+// 旧版はドライブ全体(drive)スコープが必要でしたが、v2ではドライブに直接アクセスしないため
+// 「本人確認（メールアドレス）」だけで済む、より狭いスコープにしています
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
 const INITIAL_OWNER_EMAIL = 'kk.whiteberry.1249@gmail.com';
 
 let accessToken = null;
 let tokenClient = null;
 let currentUserEmail = null;
 let currentUserName = null;
-let driveFolderId = null;
-let driveFileId = null;
 let tokenMode = 'login'; // 'login' | 'silent-init' | 'refresh'
 let refreshTimer = null;
 
@@ -599,41 +601,14 @@ async function onTokenReceived(resp) {
 }
 
 async function afterSignIn() {
-  const profile = await fetchUserInfo();
-  currentUserEmail = profile.email;
-  currentUserName = profile.name || profile.email;
-
-  const folder = await driveFindFolder(FOLDER_NAME);
-
-  if (!folder) {
-    if (currentUserEmail.toLowerCase() !== INITIAL_OWNER_EMAIL.toLowerCase()) {
-      showLoginError('このGoogleアカウントはまだ招待されていません。管理者に追加してもらってください。');
-      return;
-    }
-    driveFolderId = await driveCreateFolder(FOLDER_NAME);
-    state = defaultData();
-    state.members = [INITIAL_OWNER_EMAIL];
-    driveFileId = await driveCreateFile('data.json', driveFolderId, state);
-    showApp();
+  const res = await callScript_('load', {});
+  if (!res.ok) {
+    showLoginError(res.error || 'ログインに失敗しました。');
     return;
   }
-
-  driveFolderId = folder.id;
-  const file = await driveFindFileInFolder(driveFolderId, 'data.json');
-  if (!file) {
-    state = defaultData();
-    state.members = [currentUserEmail];
-    driveFileId = await driveCreateFile('data.json', driveFolderId, state);
-  } else {
-    driveFileId = file.id;
-    state = await driveGetFileContent(driveFileId);
-  }
-  const allowed = (state.members || []).map(e => e.toLowerCase());
-  if (!allowed.includes(currentUserEmail.toLowerCase())) {
-    showLoginError('このGoogleアカウントは、メンバーとして登録されていません。');
-    return;
-  }
-
+  currentUserEmail = res.email;
+  currentUserName = res.name || res.email;
+  state = res.data;
   showApp();
 }
 
@@ -645,8 +620,6 @@ function logout() {
   accessToken = null;
   currentUserEmail = null;
   currentUserName = null;
-  driveFolderId = null;
-  driveFileId = null;
   state = defaultData();
 
   document.getElementById('appScreen').style.display = 'none';
@@ -672,141 +645,45 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ===========================================================
-   Googleドライブとの通信
+   Apps Script（中継サーバー）との通信
+   ※ Googleドライブへは直接アクセスせず、すべてApps Script経由にしています
 =========================================================== */
-async function fetchUserInfo() {
-  const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)', {
-    headers: { Authorization: 'Bearer ' + accessToken }
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error('ユーザー情報の取得に失敗: ' + driveErrorMessage(json, res.status));
-  return { email: json.user.emailAddress, name: json.user.displayName };
-}
-
-function driveErrorMessage(json, fallback) {
-  return (json && json.error && json.error.message) ? json.error.message : fallback;
-}
-
-async function driveFindFolder(name) {
-  const q = encodeURIComponent("name='" + name + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)', {
-    headers: { Authorization: 'Bearer ' + accessToken }
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error('フォルダ検索に失敗: ' + driveErrorMessage(json, res.status));
-  return (json.files && json.files.length > 0) ? json.files[0] : null;
-}
-
-async function driveCreateFolder(name) {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' })
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error('フォルダ作成に失敗: ' + driveErrorMessage(json, res.status));
-  return json.id;
-}
-
-async function driveFindFileInFolder(folderId, filename) {
-  const q = encodeURIComponent("'" + folderId + "' in parents and name='" + filename + "' and trashed=false");
-  const res = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)', {
-    headers: { Authorization: 'Bearer ' + accessToken }
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error('ファイル検索に失敗: ' + driveErrorMessage(json, res.status));
-  return (json.files && json.files.length > 0) ? json.files[0] : null;
-}
-
-async function driveCreateFile(name, parentId, contentObj) {
-  const metadata = { name, parents: [parentId], mimeType: 'application/json' };
-  const boundary = '-------nekogohan' + uid();
-  const delimiter = '\r\n--' + boundary + '\r\n';
-  const closeDelim = '\r\n--' + boundary + '--';
-  const body =
-    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(contentObj) +
-    closeDelim;
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-    method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + accessToken,
-      'Content-Type': 'multipart/related; boundary="' + boundary + '"'
-    },
-    body
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error('ファイル作成に失敗: ' + driveErrorMessage(json, res.status));
-  return json.id;
-}
-
-async function driveUpdateFile(fileId, contentObj) {
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
-    method: 'PATCH',
-    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(contentObj)
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    let msg = res.status;
-    try { msg = JSON.parse(text).error.message; } catch (e) {}
-    throw new Error('保存に失敗: ' + msg);
+async function callScript_(action, payload) {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+    throw new Error('APPS_SCRIPT_URLが設定されていません（app.html本体の先頭付近を確認してください）');
   }
-}
-
-async function driveGetFileContent(fileId) {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&_=' + Date.now(), {
-    headers: { Authorization: 'Bearer ' + accessToken },
-    cache: 'no-store'
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    // Content-Typeをtext/plainにしているのは、application/jsonにするとブラウザが
+    // 事前確認（プリフライト）通信を送り、Apps Script側で弾かれてしまうためです
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action, accessToken }, payload))
   });
   const text = await res.text();
-  if (!res.ok) {
-    let msg = res.status;
-    try { msg = JSON.parse(text).error.message; } catch (e) {}
-    throw new Error('データ取得に失敗: ' + msg);
-  }
+  let json;
   try {
-    return JSON.parse(text);
+    json = JSON.parse(text);
   } catch (e) {
-    throw new Error('データの形式が不正です: ' + text.slice(0, 100));
+    throw new Error('サーバーの応答が正しく読み取れませんでした: ' + text.slice(0, 150));
   }
-}
-
-async function driveListPermissions(fileId) {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions?fields=permissions(id,emailAddress,role)', {
-    headers: { Authorization: 'Bearer ' + accessToken }
-  });
-  const json = await res.json();
-  return json.permissions || [];
-}
-
-async function driveAddPermission(fileId, email) {
-  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions?sendNotificationEmail=true', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: email })
-  });
-}
-
-async function driveRemovePermission(fileId, permissionId) {
-  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions/' + permissionId, {
-    method: 'DELETE',
-    headers: { Authorization: 'Bearer ' + accessToken }
-  });
+  return json;
 }
 
 async function saveData() {
   try {
-    await driveUpdateFile(driveFileId, state);
+    const res = await callScript_('save', { data: state });
+    if (!res.ok) {
+      alert('保存に失敗しました（詳細：' + (res.error || '不明なエラー') + '）');
+    }
   } catch (e) {
     alert('保存に失敗しました（詳細：' + (e && e.message ? e.message : e) + '）');
   }
 }
 
 async function refreshFromDrive() {
-  if (!driveFileId) return;
   try {
-    state = await driveGetFileContent(driveFileId);
+    const res = await callScript_('load', {});
+    if (res.ok) state = res.data;
   } catch (e) {
     // 読み込みに失敗した場合は、直前の内容のまま表示を続けます
   }
@@ -1639,15 +1516,16 @@ async function addMember() {
   const already = (state.members || []).some(e => e.toLowerCase() === email.toLowerCase());
   if (already) { alert('すでに登録されています'); return; }
 
+  let res;
   try {
-    await driveAddPermission(driveFolderId, email);
+    res = await callScript_('addMember', { email });
   } catch (e) {
-    alert('共有の設定に失敗しました。メールアドレスを確認してください。');
+    alert('メンバー追加に失敗しました（詳細：' + (e && e.message ? e.message : e) + '）');
     return;
   }
+  if (!res.ok) { alert(res.error || 'メンバー追加に失敗しました'); return; }
 
-  state.members.push(email);
-  await saveData();
+  state.members = res.members;
 
   input.value = '';
   flashMsg('memberSavedMsg');
@@ -1662,16 +1540,16 @@ async function removeMember(email) {
   }
   if (!confirm(email + ' を削除しますか？')) return;
 
+  let res;
   try {
-    const permissions = await driveListPermissions(driveFolderId);
-    const target = permissions.find(p => (p.emailAddress || '').toLowerCase() === email.toLowerCase());
-    if (target) await driveRemovePermission(driveFolderId, target.id);
+    res = await callScript_('removeMember', { email });
   } catch (e) {
-    // 共有解除に失敗しても、メンバー一覧からは削除します
+    alert('メンバー削除に失敗しました（詳細：' + (e && e.message ? e.message : e) + '）');
+    return;
   }
+  if (!res.ok) { alert(res.error || 'メンバー削除に失敗しました'); return; }
 
-  state.members = state.members.filter(e => e.toLowerCase() !== email.toLowerCase());
-  await saveData();
+  state.members = res.members;
   renderMemberList();
 }
 
