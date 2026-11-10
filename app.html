@@ -298,7 +298,7 @@
 
           <div id="mainFoodFields">
             <label class="field-label">フード1のグラム数</label>
-            <input type="number" id="inGrams" class="field-input" placeholder="例：40" min="0" step="0.1">
+            <input type="number" id="inGrams" class="field-input" placeholder="例：40" min="0" step="0.1" oninput="onGrams1Input()">
 
             <div id="food2Block" style="display:none;">
               <label class="field-label">フード2（ウェット・任意）</label>
@@ -1047,7 +1047,16 @@ function getSelectedFood2() {
   return id ? state.foods.find(f => f.id === id) : null;
 }
 
+// フード1のグラム数が、自動計算以外（手入力・履歴選択）で入っているかどうか。
+// trueの間は、フード2の選択・入力による自動計算でフード1の値を上書きしない
+let grams1ManuallyEdited = false;
+
+function onGrams1Input() {
+  grams1ManuallyEdited = document.getElementById('inGrams').value !== '';
+}
+
 function onFoodChange() {
+  grams1ManuallyEdited = false;
   const sel = document.getElementById('inFood').value;
   const mainFields = document.getElementById('mainFoodFields');
   const treatFields = document.getElementById('treatFields');
@@ -1164,7 +1173,9 @@ function updateNextMealSuggestion() {
     } else {
       box.innerHTML = '1日の残り<b>' + remainKcal.toFixed(1) + 'kcal</b>から計算した、<br>フード1「' + escapeHtml(food.name) + '」の目安：<br><b>' + gramsForFood1.toFixed(1) + 'g</b>';
     }
-    document.getElementById('inGrams').value = gramsForFood1.toFixed(1);
+    if (!grams1ManuallyEdited) {
+      document.getElementById('inGrams').value = gramsForFood1.toFixed(1);
+    }
   } else {
     const givenKcal = todayRecordsForFood(food.id).reduce((sum, r) => sum + (r.kcal || 0), 0);
     box.textContent = '本日の「' + food.name + '」合計カロリー：' + givenKcal.toFixed(1) + ' kcal';
@@ -1219,6 +1230,7 @@ function addRecord() {
 
   saveData();
 
+  grams1ManuallyEdited = false;
   document.getElementById('inGrams').value = '';
   document.getElementById('inGrams2').value = '';
   document.getElementById('inFood2').value = '';
